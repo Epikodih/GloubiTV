@@ -505,6 +505,402 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Invité'**
   String get guestName;
+
+  /// No description provided for @navSearch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher'**
+  String get navSearch;
+
+  /// No description provided for @navHome.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accueil'**
+  String get navHome;
+
+  /// No description provided for @navWatchlist.
+  ///
+  /// In fr, this message translates to:
+  /// **'À regarder'**
+  String get navWatchlist;
+
+  /// No description provided for @navFavorites.
+  ///
+  /// In fr, this message translates to:
+  /// **'Favoris'**
+  String get navFavorites;
+
+  /// No description provided for @libraryNavigation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Menu de la médiathèque'**
+  String get libraryNavigation;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher dans tout le media center'**
+  String get searchHint;
+
+  /// No description provided for @settings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Paramètres'**
+  String get settings;
+
+  /// No description provided for @sourcesTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossiers du media center'**
+  String get sourcesTitle;
+
+  /// No description provided for @sourcesHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les dossiers que le media center scanne pour remplir la médiathèque. Tape un chemin (clavier du téléphone) ou parcours les dossiers.'**
+  String get sourcesHint;
+
+  /// No description provided for @sourcePathLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chemin du dossier'**
+  String get sourcePathLabel;
+
+  /// No description provided for @sourcePathHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'D:\\Films ou smb://nas/films'**
+  String get sourcePathHint;
+
+  /// No description provided for @browse.
+  ///
+  /// In fr, this message translates to:
+  /// **'Parcourir…'**
+  String get browse;
+
+  /// No description provided for @addSource.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter'**
+  String get addSource;
+
+  /// No description provided for @removeSource.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer'**
+  String get removeSource;
+
+  /// No description provided for @scanAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout scanner'**
+  String get scanAll;
+
+  /// No description provided for @scanAllStarted.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, =0{Aucun dossier à scanner.} =1{Scan d’un dossier lancé.} other{Scan des {count} dossiers lancé.}}'**
+  String scanAllStarted(int count);
+
+  /// No description provided for @rescan.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rescanner'**
+  String get rescan;
+
+  /// No description provided for @noSources.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun dossier pour l’instant : ajoutes-en un pour remplir la médiathèque.'**
+  String get noSources;
+
+  /// No description provided for @enterFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Indique d’abord un dossier.'**
+  String get enterFolder;
+
+  /// No description provided for @folderPickError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’ouvrir le sélecteur de dossier.'**
+  String get folderPickError;
+
+  /// No description provided for @sourcesLoadError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger les dossiers.'**
+  String get sourcesLoadError;
+
+  /// No description provided for @sourceOnline.
+  ///
+  /// In fr, this message translates to:
+  /// **'En ligne'**
+  String get sourceOnline;
+
+  /// No description provided for @sourceOffline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Hors ligne'**
+  String get sourceOffline;
+
+  /// No description provided for @sourceError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur'**
+  String get sourceError;
+
+  /// No description provided for @sourceUnknown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas encore vérifié'**
+  String get sourceUnknown;
+
+  /// No description provided for @neverScanned.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jamais scanné'**
+  String get neverScanned;
+
+  /// No description provided for @lastScan.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dernier scan : {date}'**
+  String lastScan(String date);
+
+  /// No description provided for @sourceMediaCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, =0{Aucun média} =1{1 média} other{{count} médias}}'**
+  String sourceMediaCount(int count);
+
+  /// No description provided for @sourceAdded.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {name} » ajouté : le scan commence.'**
+  String sourceAdded(String name);
+
+  /// No description provided for @sourceRemoved.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {name} » retiré.'**
+  String sourceRemoved(String name);
+
+  /// No description provided for @scanStarted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Scan de « {name} » lancé.'**
+  String scanStarted(String name);
+
+  /// No description provided for @removeSourceConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer « {name} » ? Ses médias disparaîtront de la médiathèque (les fichiers ne sont pas supprimés).'**
+  String removeSourceConfirm(String name);
+
+  /// No description provided for @close.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer'**
+  String get close;
+
+  /// No description provided for @play.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture'**
+  String get play;
+
+  /// No description provided for @playSoon.
+  ///
+  /// In fr, this message translates to:
+  /// **'La lecture arrive bientôt.'**
+  String get playSoon;
+
+  /// No description provided for @addFavorite.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter aux favoris'**
+  String get addFavorite;
+
+  /// No description provided for @inFavorites.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dans les favoris'**
+  String get inFavorites;
+
+  /// No description provided for @addWatchlist.
+  ///
+  /// In fr, this message translates to:
+  /// **'À regarder plus tard'**
+  String get addWatchlist;
+
+  /// No description provided for @inWatchlist.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dans « À regarder »'**
+  String get inWatchlist;
+
+  /// No description provided for @listUpdateError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de mettre à jour la liste.'**
+  String get listUpdateError;
+
+  /// No description provided for @mediaDetailsLoadError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger la fiche du média.'**
+  String get mediaDetailsLoadError;
+
+  /// No description provided for @noOverview.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas encore de résumé pour ce média.'**
+  String get noOverview;
+
+  /// No description provided for @fileMissing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier introuvable : lecture impossible.'**
+  String get fileMissing;
+
+  /// No description provided for @notRated.
+  ///
+  /// In fr, this message translates to:
+  /// **'Non classé'**
+  String get notRated;
+
+  /// No description provided for @allAges.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tous publics'**
+  String get allAges;
+
+  /// No description provided for @ageRating.
+  ///
+  /// In fr, this message translates to:
+  /// **'{age}+'**
+  String ageRating(int age);
+
+  /// No description provided for @durationMinutes.
+  ///
+  /// In fr, this message translates to:
+  /// **'{minutes} min'**
+  String durationMinutes(int minutes);
+
+  /// No description provided for @durationHours.
+  ///
+  /// In fr, this message translates to:
+  /// **'{hours} h {minutes} min'**
+  String durationHours(int hours, int minutes);
+
+  /// No description provided for @filters.
+  ///
+  /// In fr, this message translates to:
+  /// **'Filtres'**
+  String get filters;
+
+  /// No description provided for @filtersActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Filtres, {count} actifs'**
+  String filtersActive(int count);
+
+  /// No description provided for @clearFilters.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer les filtres'**
+  String get clearFilters;
+
+  /// No description provided for @filterType.
+  ///
+  /// In fr, this message translates to:
+  /// **'Type'**
+  String get filterType;
+
+  /// No description provided for @filterGenre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Genre'**
+  String get filterGenre;
+
+  /// No description provided for @filterAge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Âge'**
+  String get filterAge;
+
+  /// No description provided for @filterAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tous'**
+  String get filterAll;
+
+  /// No description provided for @ageMax.
+  ///
+  /// In fr, this message translates to:
+  /// **'{age} ans max'**
+  String ageMax(int age);
+
+  /// No description provided for @emptyWatchlist.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ta liste « À regarder » est vide.'**
+  String get emptyWatchlist;
+
+  /// No description provided for @emptyFavorites.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun favori pour l’instant.'**
+  String get emptyFavorites;
+
+  /// No description provided for @emptyCategory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rien dans cette catégorie pour l’instant.'**
+  String get emptyCategory;
+
+  /// No description provided for @noResults.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun résultat.'**
+  String get noResults;
+
+  /// No description provided for @kindMovie.
+  ///
+  /// In fr, this message translates to:
+  /// **'Film'**
+  String get kindMovie;
+
+  /// No description provided for @kindSeries.
+  ///
+  /// In fr, this message translates to:
+  /// **'Série'**
+  String get kindSeries;
+
+  /// No description provided for @kindMusic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Musique'**
+  String get kindMusic;
+
+  /// No description provided for @kindPodcast.
+  ///
+  /// In fr, this message translates to:
+  /// **'Podcast'**
+  String get kindPodcast;
+
+  /// No description provided for @mediaWithKind.
+  ///
+  /// In fr, this message translates to:
+  /// **'{title}, {kind}'**
+  String mediaWithKind(String title, String kind);
+
+  /// No description provided for @unavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'indisponible'**
+  String get unavailable;
 }
 
 class _AppLocalizationsDelegate

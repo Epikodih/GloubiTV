@@ -215,6 +215,10 @@
       "query": [
         "kind",
         "parent_id",
+        "list",
+        "q",
+        "genre",
+        "max_age",
         "limit",
         "offset"
       ],
@@ -235,6 +239,208 @@
         {
           "status": 422,
           "code": "invalid_query"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/{id}",
+      "auth": "bearer + profil choisi",
+      "status": 200,
+      "response": "media/get_response.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        },
+        {
+          "status": 404,
+          "code": "media_not_found"
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/media/{id}/favorite",
+      "auth": "bearer + profil choisi",
+      "status": 204,
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        },
+        {
+          "status": 404,
+          "code": "media_not_found"
+        },
+        {
+          "status": 403,
+          "code": "guest_forbidden"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/media/{id}/favorite",
+      "auth": "bearer + profil choisi",
+      "status": 204,
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        },
+        {
+          "status": 404,
+          "code": "media_not_found"
+        },
+        {
+          "status": 403,
+          "code": "guest_forbidden"
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/media/{id}/watchlist",
+      "auth": "bearer + profil choisi",
+      "status": 204,
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        },
+        {
+          "status": 404,
+          "code": "media_not_found"
+        },
+        {
+          "status": 403,
+          "code": "guest_forbidden"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/media/{id}/watchlist",
+      "auth": "bearer + profil choisi",
+      "status": 204,
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        },
+        {
+          "status": 404,
+          "code": "media_not_found"
+        },
+        {
+          "status": 403,
+          "code": "guest_forbidden"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/sources",
+      "auth": "bearer + compte non restreint",
+      "status": 200,
+      "response": "sources/list.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "settings_forbidden"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources",
+      "auth": "bearer + compte non restreint",
+      "status": 201,
+      "request": "sources/create_request.json",
+      "response": "sources/create_response.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "settings_forbidden"
+        },
+        {
+          "status": 409,
+          "code": "source_exists"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/scan",
+      "auth": "bearer + compte non restreint",
+      "status": 202,
+      "request": "sources/scan_request.json",
+      "response": "sources/scan_response.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "settings_forbidden"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/sources/{id}",
+      "auth": "bearer + compte non restreint",
+      "status": 204,
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "settings_forbidden"
+        },
+        {
+          "status": 404,
+          "code": "source_not_found"
         }
       ]
     }

@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "id": 1,
+      "name": "Films",
+      "protocol": "local",
+      "uri": "file:///D:/Films",
+      "status": "online",
+      "last_scan_at": "2026-11-07T18:31:12Z",
+      "media_count": 6
+    },
+    {
+      "id": 2,
+      "name": "series",
+      "protocol": "smb",
+      "uri": "smb://nas/series",
+      "status": "offline",
+      "last_scan_at": null,
+      "media_count": 0
+    }
+  ]
+}
