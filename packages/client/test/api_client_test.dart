@@ -39,6 +39,13 @@ void main() {
       expect(backend.last('PATCH', '/api/profiles/1')!.json['name'], 'Léa');
     });
 
+    test('PUT/DELETE sans corps : réponse 204 vide -> {}', () async {
+      expect(await api.put('/api/media/2/favorite'), isEmpty);
+      expect(backend.last('PUT', '/api/media/2/favorite')!.body, isNull);
+      expect(await api.delete('/api/media/2/watchlist'), isEmpty);
+      expect(backend.last('DELETE', '/api/media/2/watchlist'), isNotNull);
+    });
+
     test('ajoute le token Bearer seulement s\'il est défini', () async {
       await api.get('/api/health');
       expect(

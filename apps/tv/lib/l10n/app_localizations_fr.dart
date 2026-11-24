@@ -241,4 +241,245 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get guestName => 'Invité';
+
+  @override
+  String get navSearch => 'Rechercher';
+
+  @override
+  String get navHome => 'Accueil';
+
+  @override
+  String get navWatchlist => 'À regarder';
+
+  @override
+  String get navFavorites => 'Favoris';
+
+  @override
+  String get libraryNavigation => 'Menu de la médiathèque';
+
+  @override
+  String get searchHint => 'Rechercher dans tout le media center';
+
+  @override
+  String get settings => 'Paramètres';
+
+  @override
+  String get sourcesTitle => 'Dossiers du media center';
+
+  @override
+  String get sourcesHint =>
+      'Les dossiers que le media center scanne pour remplir la médiathèque. Tape un chemin (clavier du téléphone) ou parcours les dossiers.';
+
+  @override
+  String get sourcePathLabel => 'Chemin du dossier';
+
+  @override
+  String get sourcePathHint => 'D:\\Films ou smb://nas/films';
+
+  @override
+  String get browse => 'Parcourir…';
+
+  @override
+  String get addSource => 'Ajouter';
+
+  @override
+  String get removeSource => 'Retirer';
+
+  @override
+  String get scanAll => 'Tout scanner';
+
+  @override
+  String scanAllStarted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Scan des $count dossiers lancé.',
+      one: 'Scan d’un dossier lancé.',
+      zero: 'Aucun dossier à scanner.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get rescan => 'Rescanner';
+
+  @override
+  String get noSources =>
+      'Aucun dossier pour l’instant : ajoutes-en un pour remplir la médiathèque.';
+
+  @override
+  String get enterFolder => 'Indique d’abord un dossier.';
+
+  @override
+  String get folderPickError => 'Impossible d’ouvrir le sélecteur de dossier.';
+
+  @override
+  String get sourcesLoadError => 'Impossible de charger les dossiers.';
+
+  @override
+  String get sourceOnline => 'En ligne';
+
+  @override
+  String get sourceOffline => 'Hors ligne';
+
+  @override
+  String get sourceError => 'Erreur';
+
+  @override
+  String get sourceUnknown => 'Pas encore vérifié';
+
+  @override
+  String get neverScanned => 'Jamais scanné';
+
+  @override
+  String lastScan(String date) {
+    return 'Dernier scan : $date';
+  }
+
+  @override
+  String sourceMediaCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count médias',
+      one: '1 média',
+      zero: 'Aucun média',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sourceAdded(String name) {
+    return '« $name » ajouté : le scan commence.';
+  }
+
+  @override
+  String sourceRemoved(String name) {
+    return '« $name » retiré.';
+  }
+
+  @override
+  String scanStarted(String name) {
+    return 'Scan de « $name » lancé.';
+  }
+
+  @override
+  String removeSourceConfirm(String name) {
+    return 'Retirer « $name » ? Ses médias disparaîtront de la médiathèque (les fichiers ne sont pas supprimés).';
+  }
+
+  @override
+  String get close => 'Fermer';
+
+  @override
+  String get play => 'Lecture';
+
+  @override
+  String get playSoon => 'La lecture arrive bientôt.';
+
+  @override
+  String get addFavorite => 'Ajouter aux favoris';
+
+  @override
+  String get inFavorites => 'Dans les favoris';
+
+  @override
+  String get addWatchlist => 'À regarder plus tard';
+
+  @override
+  String get inWatchlist => 'Dans « À regarder »';
+
+  @override
+  String get listUpdateError => 'Impossible de mettre à jour la liste.';
+
+  @override
+  String get mediaDetailsLoadError =>
+      'Impossible de charger la fiche du média.';
+
+  @override
+  String get noOverview => 'Pas encore de résumé pour ce média.';
+
+  @override
+  String get fileMissing => 'Fichier introuvable : lecture impossible.';
+
+  @override
+  String get notRated => 'Non classé';
+
+  @override
+  String get allAges => 'Tous publics';
+
+  @override
+  String ageRating(int age) {
+    return '$age+';
+  }
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String durationHours(int hours, int minutes) {
+    return '$hours h $minutes min';
+  }
+
+  @override
+  String get filters => 'Filtres';
+
+  @override
+  String filtersActive(int count) {
+    return 'Filtres, $count actifs';
+  }
+
+  @override
+  String get clearFilters => 'Effacer les filtres';
+
+  @override
+  String get filterType => 'Type';
+
+  @override
+  String get filterGenre => 'Genre';
+
+  @override
+  String get filterAge => 'Âge';
+
+  @override
+  String get filterAll => 'Tous';
+
+  @override
+  String ageMax(int age) {
+    return '$age ans max';
+  }
+
+  @override
+  String get emptyWatchlist => 'Ta liste « À regarder » est vide.';
+
+  @override
+  String get emptyFavorites => 'Aucun favori pour l’instant.';
+
+  @override
+  String get emptyCategory => 'Rien dans cette catégorie pour l’instant.';
+
+  @override
+  String get noResults => 'Aucun résultat.';
+
+  @override
+  String get kindMovie => 'Film';
+
+  @override
+  String get kindSeries => 'Série';
+
+  @override
+  String get kindMusic => 'Musique';
+
+  @override
+  String get kindPodcast => 'Podcast';
+
+  @override
+  String mediaWithKind(String title, String kind) {
+    return '$title, $kind';
+  }
+
+  @override
+  String get unavailable => 'indisponible';
 }

@@ -17,7 +17,8 @@ import 'package:epikodi_client/epikodi_client.dart';
 /// - POST  /api/session/profile -> choisir un compte (PIN) ou l'invité
 /// - POST  /api/profiles        -> créer un compte (devient actif)
 /// - PATCH /api/profiles/{id}   -> modifier un compte (PIN si restriction d'âge)
-/// - GET   /api/media           -> médias du compte actif
+/// - GET   /api/media           -> médias du compte actif (catégorie,
+///                                  favoris, « À regarder », recherche)
 class Api {
   const Api(this._client);
 
@@ -97,10 +98,78 @@ class Api {
 
   /// Médias du compte actif (le serveur filtre déjà selon l'âge).
   /// Le serveur répond { "items": [ ... ], "total", "limit", "offset" }
-  /// (voir fixtures/media/list.json).
-  Future<List<Map<String, dynamic>>> fetchMedia() async {
-    final json = await _client.get('/api/media');
-    final list = json['items'] as List? ?? const [];
+  /// (voir fixtures/media/list.json et ses règles dans fixtures/README.md).
+  ///
+  /// Filtres facultatifs, qui se combinent :
+  /// - [kind] : `movie`, `series`, `artist`, `podcast`… ;
+  /// - [list] : `favorites` ou `watchlist` (listes du profil) ;
+  /// - [query] : recherche dans tout le media center (titre) ;
+  /// - [genre] : un genre exact (`genres` du média) ;
+  /// - [maxAge] : classification maximale (`age_rating` ≤ [maxAge]).
+  Future<List<Map<String, dynamic>>> fetchMedia({
+    String? kind,
+    String? list,
+    String? query,
+    String? genre,
+    int? maxAge,
+  }) async {
+    final q = query?.trim() ?? '';
+    final json = await _client.get('/api/media', query: {
+      if (kind != null) 'kind': kind,
+      if (list != null) 'list': list,
+      if (q.isNotEmpty) 'q': q,
+      if (genre != null) 'genre': genre,
+      if (maxAge != null) 'max_age': maxAge,
+    });
+    final items = json['items'] as List? ?? const [];
+    return items.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Fiche d'un média : champs de la liste, plus `overview`,
+  /// `in_favorites` et `in_watchlist` (voir fixtures/media/get_response.json).
+  Future<Map<String, dynamic>> fetchMediaDetail(Object id) =>
+      _client.get('/api/media/$id');
+
+  /// Ajoute ([add]) ou retire un média d'une liste du profil :
+  /// [list] vaut `favorite` ou `watchlist`.
+  /// PUT / DELETE /api/media/{id}/{list}, réponse 204.
+  Future<void> setInList(Object id, String list, bool add) async {
+    assert(list == 'favorite' || list == 'watchlist');
+    final path = '/api/media/$id/$list';
+    if (add) {
+      await _client.put(path);
+    } else {
+      await _client.delete(path);
+    }
+  }
+
+  // ------------------------------------------------- dossiers (paramètres)
+
+  /// Dossiers que le media center scanne (voir fixtures/sources/list.json).
+  Future<List<Map<String, dynamic>>> fetchSources() async {
+    final json = await _client.get('/api/sources');
+    final list = json['sources'] as List? ?? const [];
+    return list.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Ajoute un dossier ([uri] : `file:///…` ou `smb://…`). Le serveur lance
+  /// un premier scan et renvoie le dossier créé.
+  Future<Map<String, dynamic>> addSource(String uri, {String? name}) =>
+      _client.post('/api/sources', body: {
+        if (name != null) 'name': name,
+        'uri': uri,
+      });
+
+  /// Retire un dossier (ses médias quittent la médiathèque).
+  Future<void> removeSource(Object id) => _client.delete('/api/sources/$id');
+
+  /// Relance le scan (en arrière-plan côté serveur) : seulement les dossiers
+  /// [uris], ou **tous** les dossiers si [uris] est null ou vide (pas de corps).
+  /// POST /api/sources/scan ; renvoie les dossiers dont le scan démarre.
+  Future<List<Map<String, dynamic>>> scanSources({List<String>? uris}) async {
+    final json = await _client.post('/api/sources/scan',
+        body: (uris == null || uris.isEmpty) ? null : {'uris': uris});
+    final list = json['scanning'] as List? ?? const [];
     return list.whereType<Map<String, dynamic>>().toList();
   }
 

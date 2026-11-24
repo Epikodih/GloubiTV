@@ -112,5 +112,110 @@
   "sectionPodcasts": "Podcasts",
   "libraryLoadError": "Unable to load the library.",
   "noMediaForProfile": "No media available for this profile.",
-  "guestName": "Guest"
+  "guestName": "Guest",
+  "navSearch": "Search",
+  "navHome": "Home",
+  "navWatchlist": "Watchlist",
+  "navFavorites": "Favorites",
+  "libraryNavigation": "Library menu",
+  "searchHint": "Search the whole media center",
+  "settings": "Settings",
+  "sourcesTitle": "Media center folders",
+  "sourcesHint": "The folders the media center scans to fill the library. Type a path (phone keyboard) or browse the folders.",
+  "sourcePathLabel": "Folder path",
+  "sourcePathHint": "D:\\Movies or smb://nas/movies",
+  "browse": "Browse…",
+  "addSource": "Add",
+  "removeSource": "Remove",
+  "scanAll": "Scan all",
+  "scanAllStarted": "{count, plural, =0{No folder to scan.} =1{Scanning 1 folder.} other{Scanning {count} folders.}}",
+  "@scanAllStarted": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "rescan": "Rescan",
+  "noSources": "No folders yet: add one to fill the library.",
+  "enterFolder": "Enter a folder first.",
+  "folderPickError": "Unable to open the folder picker.",
+  "sourcesLoadError": "Unable to load the folders.",
+  "sourceOnline": "Online",
+  "sourceOffline": "Offline",
+  "sourceError": "Error",
+  "sourceUnknown": "Not checked yet",
+  "neverScanned": "Never scanned",
+  "lastScan": "Last scan: {date}",
+  "@lastScan": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "sourceMediaCount": "{count, plural, =0{No media} =1{1 media} other{{count} media}}",
+  "@sourceMediaCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "sourceAdded": "“{name}” added: scanning starts.",
+  "@sourceAdded": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "sourceRemoved": "“{name}” removed.",
+  "@sourceRemoved": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "scanStarted": "Scan of “{name}” started.",
+  "@scanStarted": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "removeSourceConfirm": "Remove “{name}”? Its media will leave the library (files are not deleted).",
+  "@removeSourceConfirm": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "close": "Close",
+  "play": "Play",
+  "playSoon": "Playback is coming soon.",
+  "addFavorite": "Add to favorites",
+  "inFavorites": "In favorites",
+  "addWatchlist": "Watch later",
+  "inWatchlist": "In watchlist",
+  "listUpdateError": "Unable to update the list.",
+  "mediaDetailsLoadError": "Unable to load the media details.",
+  "noOverview": "No summary for this media yet.",
+  "fileMissing": "File not found: cannot play.",
+  "notRated": "Not rated",
+  "allAges": "All ages",
+  "ageRating": "{age}+",
+  "@ageRating": {
+    "placeholders": { "age": { "type": "int" } }
+  },
+  "durationMinutes": "{minutes} min",
+  "@durationMinutes": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "durationHours": "{hours} h {minutes} min",
+  "@durationHours": {
+    "placeholders": { "hours": { "type": "int" }, "minutes": { "type": "int" } }
+  },
+  "filters": "Filters",
+  "filtersActive": "Filters, {count} active",
+  "@filtersActive": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "clearFilters": "Clear filters",
+  "filterType": "Type",
+  "filterGenre": "Genre",
+  "filterAge": "Age",
+  "filterAll": "All",
+  "ageMax": "Up to {age}",
+  "@ageMax": {
+    "placeholders": { "age": { "type": "int" } }
+  },
+  "emptyWatchlist": "Your watchlist is empty.",
+  "emptyFavorites": "No favorites yet.",
+  "emptyCategory": "Nothing in this category yet.",
+  "noResults": "No results.",
+  "kindMovie": "Movie",
+  "kindSeries": "TV show",
+  "kindMusic": "Music",
+  "kindPodcast": "Podcast",
+  "mediaWithKind": "{title}, {kind}",
+  "@mediaWithKind": {
+    "placeholders": { "title": { "type": "String" }, "kind": { "type": "String" } }
+  },
+  "unavailable": "unavailable"
 }
