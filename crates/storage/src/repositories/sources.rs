@@ -7,7 +7,8 @@ use epikodi_domain::{DomainError, DomainResult, Id};
 use super::{db_err, iso_opt, parse_col, unique_err, Store};
 
 const COLS: &str =
-    "id, name, protocol, uri, credentials_encrypted IS NOT NULL, status, last_scan_at";
+    "id, name, protocol, uri, credentials_encrypted IS NOT NULL, status, last_scan_at, \
+     (SELECT COUNT(*) FROM media m WHERE m.source_id = source.id)";
 
 fn row(r: &Row) -> rusqlite::Result<Source> {
     Ok(Source {
@@ -18,6 +19,7 @@ fn row(r: &Row) -> rusqlite::Result<Source> {
         has_credentials: r.get(4)?,
         status: parse_col(5, r.get(5)?)?,
         last_scan_at: iso_opt(r.get(6)?),
+        media_count: r.get::<_, i64>(7)? as u64,
     })
 }
 

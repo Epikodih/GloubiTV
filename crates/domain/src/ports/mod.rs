@@ -135,6 +135,9 @@ pub trait FavoriteRepo {
     fn add_favorite(&self, user_id: Id, media_id: Id) -> DomainResult<()>;
     fn remove_favorite(&self, user_id: Id, media_id: Id) -> DomainResult<()>;
     fn favorites(&self, user_id: Id, vis: Visibility) -> DomainResult<Vec<Media>>;
+    fn in_watchlist(&self, user_id: Id, media_id: Id) -> DomainResult<bool>;
+    fn add_to_watchlist(&self, user_id: Id, media_id: Id) -> DomainResult<()>;
+    fn remove_from_watchlist(&self, user_id: Id, media_id: Id) -> DomainResult<()>;
 }
 
 pub trait PlaylistRepo {

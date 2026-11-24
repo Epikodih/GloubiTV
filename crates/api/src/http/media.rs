@@ -10,7 +10,7 @@ use axum::Json;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use epikodi_domain::media::{Media, MediaKind, MediaPatch, MediaQuery, MediaSort};
+use epikodi_domain::media::{Media, MediaKind, MediaPatch, MediaQuery, MediaSort, UserList};
 use epikodi_domain::parental::Visibility;
 use epikodi_domain::playback::{apply_position, container_watched, next_episode, WatchProgress};
 use epikodi_domain::ports::{FavoriteRepo, MediaRepo, ProgressRepo};
@@ -35,6 +35,8 @@ pub struct ListQuery {
     pub parent_id: Option<String>,
     pub limit: Option<String>,
     pub offset: Option<String>,
+    pub list: Option<String>,
+    pub max_age: Option<String>,
     pub q: Option<String>,
     pub genre: Option<String>,
     pub year: Option<String>,
@@ -92,8 +94,26 @@ pub async fn list(
         Some("added") => MediaSort::Added,
         Some(_) => return Err(ApiError::invalid_query("sort", "title, year ou added")),
     };
+    let list = match q.list.as_deref() {
+        None | Some("") => None,
+        Some("favorites") => Some(UserList::Favorites),
+        Some("watchlist") => Some(UserList::Watchlist),
+        Some(_) => return Err(ApiError::invalid_query("list", "favorites ou watchlist")),
+    };
+    let user = ctx.profile()?.user_id();
+    if list.is_some() && user.is_none() {
+        // l'invité n'a pas de liste enregistrée
+        return Ok(Json(MediaList {
+            items: Vec::new(),
+            total: 0,
+            limit,
+            offset,
+        }));
+    }
     let query = MediaQuery {
         kind,
+        list: list.zip(user),
+        max_age: parse("max_age", &q.max_age)?,
         parent_id: parse("parent_id", &q.parent_id)?,
         search: q.q.clone().filter(|s| !s.trim().is_empty()),
         genre: q.genre.clone().filter(|s| !s.is_empty()),
@@ -222,7 +242,7 @@ pub async fn detail(
                 }
             }
             let children_count = s.children(id, vis)?.len() as u64;
-            let (progress, is_watched, is_favorite) = match user {
+            let (progress, is_watched, in_favorites, in_watchlist) = match user {
                 Some(u) => {
                     let progress = if m.kind.is_leaf() {
                         s.get_progress(u, id)?
@@ -241,9 +261,14 @@ pub async fn detail(
                             .collect();
                         container_watched(&flags)
                     };
-                    (progress, watched, s.is_favorite(u, id)?)
+                    (
+                        progress,
+                        watched,
+                        s.is_favorite(u, id)?,
+                        s.in_watchlist(u, id)?,
+                    )
                 }
-                None => (None, false, false),
+                None => (None, false, false, false),
             };
             let playback_uri = match (&m.uri, is_tv && m.kind.is_leaf()) {
                 (Some(uri), true) => Some(
@@ -253,8 +278,12 @@ pub async fn detail(
                 ),
                 _ => None,
             };
+            let overview = details.overview.clone();
             Ok(MediaDetailResponse {
                 media: views::media_item(&m),
+                overview,
+                in_favorites,
+                in_watchlist,
                 details: serde_json::to_value(&details)
                     .unwrap_or(Value::Object(Default::default())),
                 ancestors,
@@ -263,12 +292,67 @@ pub async fn detail(
                     .as_ref()
                     .map(|p| views::progress_view(p, m.duration_s)),
                 is_watched,
-                is_favorite,
                 playback_uri,
             })
         })
         .await?;
     Ok(Json(res))
+}
+
+/// `PUT /api/media/{id}/favorite` (204)
+pub async fn add_favorite(ctx: Ctx, state: State<AppState>, id: PathId) -> ApiResult<StatusCode> {
+    set_list(ctx, state, id, UserList::Favorites, true).await
+}
+
+/// `DELETE /api/media/{id}/favorite` (204)
+pub async fn remove_favorite(
+    ctx: Ctx,
+    state: State<AppState>,
+    id: PathId,
+) -> ApiResult<StatusCode> {
+    set_list(ctx, state, id, UserList::Favorites, false).await
+}
+
+/// `PUT /api/media/{id}/watchlist` (204)
+pub async fn add_watchlist(ctx: Ctx, state: State<AppState>, id: PathId) -> ApiResult<StatusCode> {
+    set_list(ctx, state, id, UserList::Watchlist, true).await
+}
+
+/// `DELETE /api/media/{id}/watchlist` (204)
+pub async fn remove_watchlist(
+    ctx: Ctx,
+    state: State<AppState>,
+    id: PathId,
+) -> ApiResult<StatusCode> {
+    set_list(ctx, state, id, UserList::Watchlist, false).await
+}
+
+/// Ajoute ou retire un média d'une liste du profil (idempotent).
+/// L'invité garde ses listes côté TV : `guest_forbidden`.
+async fn set_list(
+    ctx: Ctx,
+    State(state): State<AppState>,
+    PathId(id): PathId,
+    list: UserList,
+    add: bool,
+) -> ApiResult<StatusCode> {
+    let vis = ctx.visibility()?;
+    let Some(user) = ctx.profile()?.user_id() else {
+        return Err(ApiError::guest_forbidden());
+    };
+    state
+        .db(move |s| {
+            visible(s, id, vis)?;
+            match (list, add) {
+                (UserList::Favorites, true) => s.add_favorite(user, id)?,
+                (UserList::Favorites, false) => s.remove_favorite(user, id)?,
+                (UserList::Watchlist, true) => s.add_to_watchlist(user, id)?,
+                (UserList::Watchlist, false) => s.remove_from_watchlist(user, id)?,
+            }
+            Ok(())
+        })
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// `GET /api/media/{id}/poster` : l'image du cache local (token requis).

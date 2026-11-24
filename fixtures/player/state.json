@@ -11,6 +11,7 @@
       "duration_s": 888,
       "sort_number": null,
       "age_rating": 10,
+      "genres": ["Animation", "Fantastique"],
       "match_status": "auto",
       "status": "available"
     },

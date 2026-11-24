@@ -32,7 +32,8 @@ fn lan_ip(state: &AppState) -> String {
         .unwrap_or_else(|| "127.0.0.1".into())
 }
 
-/// Le QR localise le serveur ; il ne contient JAMAIS le code.
+/// Le QR localise le serveur et contient le code (même code qu'affiché en
+/// clair) : scanner suffit pour appairer.
 fn pairing_info(state: &AppState, code: &PairingCode) -> PairingInfo {
     let now = state.now();
     PairingInfo {
@@ -42,10 +43,11 @@ fn pairing_info(state: &AppState, code: &PairingCode) -> PairingInfo {
         attempts_left: code.attempts_left,
         qr: QrInfo {
             payload: format!(
-                "{QR_SCHEME}://pair?host={}&port={}&sid={}",
+                "{QR_SCHEME}://pair?host={}&port={}&sid={}&code={}",
                 lan_ip(state),
                 state.config.port,
-                code.session_id
+                code.session_id,
+                code.code
             ),
             format: "text".into(),
         },

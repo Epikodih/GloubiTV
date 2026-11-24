@@ -51,4 +51,34 @@ impl FavoriteRepo for Store {
         let rows = st.query_map([user_id], row).map_err(db_err)?;
         rows.collect::<Result<_, _>>().map_err(db_err)
     }
+
+    fn in_watchlist(&self, user_id: Id, media_id: Id) -> DomainResult<bool> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM watchlist WHERE user_id = ?1 AND media_id = ?2)",
+                params![user_id, media_id],
+                |r| r.get(0),
+            )
+            .map_err(db_err)
+    }
+
+    fn add_to_watchlist(&self, user_id: Id, media_id: Id) -> DomainResult<()> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO watchlist (user_id, media_id) VALUES (?1, ?2)",
+                params![user_id, media_id],
+            )
+            .map_err(db_err)?;
+        Ok(())
+    }
+
+    fn remove_from_watchlist(&self, user_id: Id, media_id: Id) -> DomainResult<()> {
+        self.conn
+            .execute(
+                "DELETE FROM watchlist WHERE user_id = ?1 AND media_id = ?2",
+                params![user_id, media_id],
+            )
+            .map_err(db_err)?;
+        Ok(())
+    }
 }

@@ -48,7 +48,10 @@ async fn connexion_de_la_tv() {
     assert_eq!(b["lan_ip"], "192.168.1.42");
     let qr = b["pairing"]["qr"]["payload"].as_str().unwrap();
     assert!(qr.starts_with("mediacenter://pair?host=192.168.1.42&port=7878&sid="));
-    assert!(!qr.contains(code), "le QR ne contient jamais le code");
+    assert!(
+        qr.ends_with(&format!("&code={code}")),
+        "le QR contient le code"
+    );
 }
 
 #[tokio::test]

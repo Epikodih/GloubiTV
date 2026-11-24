@@ -32,6 +32,60 @@ fn file_uri(p: &std::path::Path) -> String {
 }
 
 #[tokio::test]
+async fn sources_au_format_des_fixtures() {
+    let app = TestApp::new();
+    let r = admin(&app).await;
+    let dir = app.dir.path().join("Musique");
+    fs::create_dir_all(&dir).unwrap();
+
+    // nom et protocole facultatifs : déduits de l'URI
+    let (s, src) = app
+        .post("/api/sources", json!({"uri": file_uri(&dir)}), &r)
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{src}");
+    common::assert_same_shape(&src, &common::fixture("sources/create_response.json"), "$");
+    assert_eq!(src["name"], "Musique");
+    assert_eq!(src["protocol"], "local");
+    assert_eq!(src["media_count"], 0);
+    wait_scan(&app, &r).await;
+
+    let (s, b) = app
+        .post("/api/sources", json!({"uri": file_uri(&dir)}), &r)
+        .await;
+    assert_eq!(s, StatusCode::CONFLICT);
+    assert_eq!(b["error"]["code"], "source_exists");
+
+    let (_, list) = app.get("/api/sources", &r).await;
+    common::assert_same_shape(&list, &common::fixture("sources/list.json"), "$");
+
+    // un dossier ciblé
+    let (s, b) = app
+        .post("/api/sources/scan", json!({"uris": [file_uri(&dir)]}), &r)
+        .await;
+    assert_eq!(s, StatusCode::ACCEPTED, "{b}");
+    common::assert_same_shape(&b, &common::fixture("sources/scan_response.json"), "$");
+    assert_eq!(b["scanning"][0]["id"], src["id"]);
+    wait_scan(&app, &r).await;
+
+    // sans corps : tous les dossiers
+    let (s, b) = app.post("/api/sources/scan", json!(null), &r).await;
+    assert_eq!(s, StatusCode::ACCEPTED);
+    assert_eq!(b["scanning"].as_array().unwrap().len(), 1);
+    wait_scan(&app, &r).await;
+
+    // dossier inconnu : rien n'est lancé
+    let (s, b) = app
+        .post(
+            "/api/sources/scan",
+            json!({"uris": ["file:///nulle/part"]}),
+            &r,
+        )
+        .await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(b["error"]["code"], "validation_failed");
+}
+
+#[tokio::test]
 async fn ajouter_une_source_et_scanner() {
     let app = TestApp::new();
     let r = admin(&app).await;

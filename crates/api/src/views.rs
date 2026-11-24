@@ -29,6 +29,7 @@ pub fn media_item(m: &Media) -> MediaItem {
         duration_s: m.duration_s,
         sort_number: m.sort_number,
         age_rating: m.age_rating,
+        genres: m.genres.clone(),
         match_status: m.match_status,
         status: m.status,
     }
@@ -148,6 +149,7 @@ pub fn source_view(s: &Source) -> SourceView {
         has_credentials: s.has_credentials,
         status: s.status,
         last_scan_at: s.last_scan_at.clone(),
+        media_count: s.media_count,
     }
 }
 

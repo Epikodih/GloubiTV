@@ -214,6 +214,8 @@ pub struct Media {
     pub fingerprint: Option<String>,
     pub status: MediaStatus,
     pub added_at: String,
+    /// Genres de la fiche (`media_details.genres`), vide sinon.
+    pub genres: Vec<String>,
 }
 
 /// Données pour créer un média (scan, création à la demande des conteneurs).
@@ -322,10 +324,21 @@ pub enum MediaSort {
     Added,
 }
 
+/// Liste personnelle d'un compte (`GET /api/media?list=`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserList {
+    Favorites,
+    Watchlist,
+}
+
 /// Filtres d'une liste du catalogue (`GET /api/media`).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MediaQuery {
     pub kind: Option<MediaKind>,
+    /// Favoris ou « À regarder » de ce compte.
+    pub list: Option<(UserList, Id)>,
+    /// Classification connue et inférieure ou égale (filtre choisi à l'écran).
+    pub max_age: Option<u8>,
     pub parent_id: Option<Id>,
     pub search: Option<String>,
     pub genre: Option<String>,

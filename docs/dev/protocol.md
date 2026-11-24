@@ -51,7 +51,7 @@ média masqué répond `404 media_not_found` (on ne révèle pas qu'il existe).
 Règles du code : aléatoire sûr, usage unique, 5 minutes, 5 essais. Erreurs :
 `403 pairing_code_invalid` (`details.attempts_left`), `410 pairing_code_expired`,
 `429 pairing_too_many_attempts` (`details.retry_after_s`, code renouvelé). Le QR
-contient `mediacenter://pair?host=<ip>&port=7878&sid=<session>`, jamais le code.
+contient `mediacenter://pair?host=<ip>&port=7878&sid=<session>&code=<code>` (le même code qu'affiché en clair).
 Un appairage avec le même `install_id` révoque l'ancien jeton.
 
 ## Comptes et session
@@ -83,7 +83,7 @@ PIN : 5 essais puis verrouillage 60 s (`429 pin_locked`, `details.retry_after_s`
 | `GET /api/media` | profil | `kind`, `parent_id`, `limit` (50, max 500), `offset`, `q` (recherche sans accents), `genre`, `year`, `sort` (`title`, `year`, `added`). Erreurs : `422 invalid_query`, `404 media_not_found` |
 | `GET /api/media/genres`, `/years` | profil | `{"genres": [{"value", "count"}]}` |
 | `GET /api/media/recent`, `/continue` | profil | `?limit=` |
-| `GET /api/media/{id}` | profil | `media/detail.json` : fiche, fil d'Ariane, progression, vu, favori ; `playback_uri` seulement pour l'app TV |
+| `GET /api/media/{id}` | profil | `media/get_response.json` : fiche, fil d'Ariane, progression, vu, favori ; `playback_uri` seulement pour l'app TV |
 | `GET /api/media/{id}/poster` | profil | image du cache local |
 | `GET /api/media/{id}/next` | profil | `{"media": ...|null}` (épisode suivant) |
 | `PUT /api/media/{id}/progress` | compte | `{"position_s", "duration_s"?}` ; vu automatiquement à 90 % |
@@ -92,6 +92,7 @@ PIN : 5 essais puis verrouillage 60 s (`429 pin_locked`, `details.retry_after_s`
 | `GET /api/media/{id}/matches?q=&year=` | adulte | résultats proposés par les fournisseurs |
 | `POST /api/media/{id}/match` | adulte | `{"provider", "external_id"}` : applique le résultat choisi |
 | `GET /api/favorites`, `PUT`/`DELETE /api/favorites/{id}` | compte | |
+| `PUT`/`DELETE /api/media/{id}/favorite`, `/watchlist` | compte | `204`, idempotent ; listes lisibles via `GET /api/media?list=favorites\|watchlist` |
 | `GET`/`POST /api/playlists`, `GET`/`PATCH`/`DELETE /api/playlists/{id}` | compte | |
 | `POST /api/playlists/{id}/items`, `DELETE /api/playlists/{id}/items/{position}` | compte | |
 
@@ -105,6 +106,7 @@ PIN : 5 essais puis verrouillage 60 s (`429 pin_locked`, `details.retry_after_s`
 | `DELETE /api/sources/{id}` | adulte | supprime la source et ses médias |
 | `GET /api/sources/discover` | adulte | partages SMB annoncés en mDNS |
 | `POST /api/sources/{id}/scan?dir=` | adulte | `202` ; `dir` = scan ciblé d'un dossier |
+| `POST /api/sources/scan` | adulte | `202`, corps facultatif `{"uris": [...]}` ; réponse `{"scanning": [...]}` |
 | `POST /api/library/scan` | adulte | `202`, toutes les sources ; `409 scan_in_progress` |
 | `GET /api/library/scan` | profil | bilan du dernier scan (ajoutés, modifiés, déplacés, disparus, enrichis, erreurs, durée) |
 

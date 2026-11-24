@@ -67,6 +67,14 @@ pub fn routes() -> Router<AppState> {
         .route("/api/media/:id/match", post(media::apply_match))
         .route("/api/media/:id/progress", put(media::progress))
         .route("/api/media/:id/watched", put(media::watched))
+        .route(
+            "/api/media/:id/favorite",
+            put(media::add_favorite).delete(media::remove_favorite),
+        )
+        .route(
+            "/api/media/:id/watchlist",
+            put(media::add_watchlist).delete(media::remove_watchlist),
+        )
         .route("/api/favorites", get(library::favorites))
         .route(
             "/api/favorites/:id",
@@ -111,6 +119,7 @@ pub fn routes() -> Router<AppState> {
         // sources et scan
         .route("/api/sources", get(sources::list).post(sources::create))
         .route("/api/sources/discover", get(sources::discover))
+        .route("/api/sources/scan", post(sources::scan_sources))
         .route(
             "/api/sources/:id",
             get(sources::get)

@@ -86,7 +86,7 @@ impl ProgressRepo for Store {
             .map_err(db_err)?;
         let rows = st
             .query_map(params![user_id, limit], |r| {
-                Ok((media_row(r)?, row(r, 18)?))
+                Ok((media_row(r)?, row(r, 19)?))
             })
             .map_err(db_err)?;
         rows.collect::<Result<_, _>>().map_err(db_err)

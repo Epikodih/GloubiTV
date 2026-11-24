@@ -172,11 +172,12 @@ async fn fiche_progression_reprise_et_vu() {
         .await;
     let (s, b) = app.get(&format!("/api/media/{}", d.sintel), &r).await;
     assert_eq!(s, StatusCode::OK);
-    let mut expected = fixture("media/detail.json");
+    let mut expected = fixture("media/get_response.json");
     expected["details"] = Value::Null; // fiche libre (selon le fournisseur)
     assert_same_shape(&b, &expected, "$");
     assert_eq!(b["progress"]["position_s"], 312);
-    assert_eq!(b["is_favorite"], true);
+    assert_eq!(b["in_favorites"], true);
+    assert_eq!(b["in_watchlist"], false);
     assert!(b["playback_uri"].is_null(), "réservé à l'app TV");
 
     // reprise sur l'accueil
@@ -381,4 +382,72 @@ async fn affiche_absente() {
         .await;
     assert_eq!(s, StatusCode::NOT_FOUND);
     assert_eq!(b["error"]["code"], "poster_not_found");
+}
+
+#[tokio::test]
+async fn favoris_et_a_regarder_par_la_fiche() {
+    let app = TestApp::new();
+    let d = demo(&app).await;
+    let (r, marc, _) = family(&app).await;
+    app.select(&r, marc, Some("1234")).await;
+
+    for list in ["favorite", "watchlist"] {
+        let path = format!("/api/media/{}/{list}", d.sintel);
+        // idempotent : deux ajouts, deux retraits, toujours 204
+        assert_eq!(
+            app.put(&path, json!(null), &r).await.0,
+            StatusCode::NO_CONTENT
+        );
+        assert_eq!(
+            app.put(&path, json!(null), &r).await.0,
+            StatusCode::NO_CONTENT
+        );
+    }
+    let (_, b) = app.get(&format!("/api/media/{}", d.sintel), &r).await;
+    assert_eq!(b["in_favorites"], true);
+    assert_eq!(b["in_watchlist"], true);
+    let (_, l) = app.get("/api/media?list=watchlist", &r).await;
+    assert_eq!(l["total"], 1);
+    assert_eq!(l["items"][0]["id"], d.sintel);
+    let (s, b) = app.get("/api/media?list=autre", &r).await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(b["error"]["code"], "invalid_query");
+
+    let path = format!("/api/media/{}/watchlist", d.sintel);
+    assert_eq!(app.delete(&path, &r).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(app.delete(&path, &r).await.0, StatusCode::NO_CONTENT);
+    let (_, b) = app.get(&format!("/api/media/{}", d.sintel), &r).await;
+    assert_eq!(b["in_watchlist"], false);
+    let (_, l) = app.get("/api/media?list=watchlist", &r).await;
+    assert_eq!(l["total"], 0);
+
+    // média inconnu
+    let (s, b) = app.put("/api/media/9999/favorite", json!(null), &r).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert_eq!(b["error"]["code"], "media_not_found");
+
+    // filtre d'âge choisi à l'écran : classification connue et <= 10
+    let (_, l) = app.get("/api/media?max_age=10&kind=movie", &r).await;
+    let titles: Vec<_> = l["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, ["Big Buck Bunny", "Sintel"]);
+
+    // invité : listes gardées par la TV
+    app.post("/api/session/profile", json!({"type": "guest"}), &r)
+        .await;
+    let (s, b) = app
+        .put(
+            &format!("/api/media/{}/favorite", d.sintel),
+            json!(null),
+            &r,
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    assert_eq!(b["error"]["code"], "guest_forbidden");
+    let (_, l) = app.get("/api/media?list=favorites", &r).await;
+    assert_eq!(l["items"], json!([]));
 }

@@ -8,6 +8,7 @@ use rusqlite::Connection;
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/schema.sql"),
     include_str!("../migrations/0002_profiles_devices.sql"),
+    include_str!("../migrations/0003_watchlist.sql"),
 ];
 
 /// Version du schéma après toutes les migrations.

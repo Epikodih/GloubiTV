@@ -310,6 +310,8 @@ pub struct MediaItem {
     pub duration_s: Option<i64>,
     pub sort_number: Option<i64>,
     pub age_rating: Option<u8>,
+    #[serde(default)]
+    pub genres: Vec<String>,
     pub match_status: MatchStatus,
     pub status: MediaStatus,
 }
@@ -331,17 +333,21 @@ pub struct ProgressView {
     pub resume_at_s: i64,
 }
 
-/// `GET /api/media/{id}` : la carte, la fiche, et l'état propre au profil.
+/// `GET /api/media/{id}` (`fixtures/media/get_response.json`) : les champs
+/// de la carte, le résumé, les listes du profil, la fiche et la progression.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MediaDetailResponse {
+    #[serde(flatten)]
     pub media: MediaItem,
+    pub overview: Option<String>,
+    pub in_favorites: bool,
+    pub in_watchlist: bool,
     pub details: Value,
     /// Chemin du parent jusqu'au premier niveau (fil d'Ariane).
     pub ancestors: Vec<MediaItem>,
     pub children_count: u64,
     pub progress: Option<ProgressView>,
     pub is_watched: bool,
-    pub is_favorite: bool,
     /// Ce que le lecteur ouvre (fichier ou URL). Seulement pour l'app TV.
     pub playback_uri: Option<String>,
 }
@@ -713,6 +719,7 @@ pub struct SourceView {
     pub has_credentials: bool,
     pub status: SourceStatus,
     pub last_scan_at: Option<String>,
+    pub media_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -722,11 +729,35 @@ pub struct SourceList {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreateSourceRequest {
-    pub name: String,
-    pub protocol: Protocol,
+    /// Facultatif : par défaut le nom du dossier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Facultatif : déduit de l'URI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<Protocol>,
     pub uri: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credentials: Option<Credentials>,
+}
+
+/// `POST /api/sources/scan` : sans corps (ou `uris` vide), tous les dossiers.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ScanSourcesRequest {
+    #[serde(default)]
+    pub uris: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScanningSource {
+    pub id: Id,
+    pub name: String,
+    pub uri: String,
+}
+
+/// Réponse `202` de `POST /api/sources/scan`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScanSourcesResponse {
+    pub scanning: Vec<ScanningSource>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

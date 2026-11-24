@@ -10,6 +10,9 @@
       "duration_s": null,
       "sort_number": null,
       "age_rating": 0,
+      "genres": [
+        "Pop"
+      ],
       "match_status": "auto",
       "status": "available"
     },
@@ -23,6 +26,10 @@
       "duration_s": 596,
       "sort_number": null,
       "age_rating": 0,
+      "genres": [
+        "Animation",
+        "Comédie"
+      ],
       "match_status": "auto",
       "status": "available"
     },
@@ -36,6 +43,10 @@
       "duration_s": 654,
       "sort_number": null,
       "age_rating": 0,
+      "genres": [
+        "Animation",
+        "Science-fiction"
+      ],
       "match_status": "auto",
       "status": "missing"
     },
@@ -49,6 +60,9 @@
       "duration_s": 6000,
       "sort_number": null,
       "age_rating": 16,
+      "genres": [
+        "Thriller"
+      ],
       "match_status": "auto",
       "status": "available"
     },
@@ -62,6 +76,7 @@
       "duration_s": 5400,
       "sort_number": null,
       "age_rating": null,
+      "genres": [],
       "match_status": "unmatched",
       "status": "available"
     },
@@ -75,6 +90,9 @@
       "duration_s": null,
       "sort_number": null,
       "age_rating": 0,
+      "genres": [
+        "Technologie"
+      ],
       "match_status": "auto",
       "status": "available"
     },
@@ -88,6 +106,9 @@
       "duration_s": null,
       "sort_number": null,
       "age_rating": 10,
+      "genres": [
+        "Drame"
+      ],
       "match_status": "auto",
       "status": "available"
     },
@@ -101,6 +122,10 @@
       "duration_s": 888,
       "sort_number": null,
       "age_rating": 10,
+      "genres": [
+        "Animation",
+        "Fantastique"
+      ],
       "match_status": "auto",
       "status": "available"
     },
@@ -114,6 +139,10 @@
       "duration_s": 734,
       "sort_number": null,
       "age_rating": 12,
+      "genres": [
+        "Science-fiction",
+        "Action"
+      ],
       "match_status": "auto",
       "status": "available"
     }

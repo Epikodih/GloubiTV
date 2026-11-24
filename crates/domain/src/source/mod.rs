@@ -102,6 +102,8 @@ pub struct Source {
     pub has_credentials: bool,
     pub status: SourceStatus,
     pub last_scan_at: Option<String>,
+    /// Médias trouvés dans ce dossier.
+    pub media_count: u64,
 }
 
 /// Identifiants d'un partage. Ne doit jamais apparaître dans les logs ni

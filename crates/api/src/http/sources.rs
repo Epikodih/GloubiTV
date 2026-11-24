@@ -13,8 +13,8 @@ use serde::Deserialize;
 
 use epikodi_domain::ports::{ImageCache, LibraryRepo, NewSource, SourceRepo};
 use epikodi_domain::protocol::{
-    CreateSourceRequest, DiscoveredSourceView, DiscoveredSources, Event, ScanStatus, SourceList,
-    SourceView, UpdateSourceRequest,
+    CreateSourceRequest, DiscoveredSourceView, DiscoveredSources, Event, ScanSourcesRequest,
+    ScanSourcesResponse, ScanStatus, ScanningSource, SourceList, SourceView, UpdateSourceRequest,
 };
 use epikodi_domain::source::{check_source_uri, Protocol, Source, SourceStatus};
 use epikodi_domain::Id;
@@ -60,14 +60,21 @@ pub async fn create(
     JsonBody(req): JsonBody<CreateSourceRequest>,
 ) -> ApiResult<(StatusCode, Json<SourceView>)> {
     ctx.admin()?;
-    let name = req.name.trim().to_string();
+    let uri = req.uri.trim().trim_end_matches('/').to_string();
+    let protocol = match req.protocol {
+        Some(p) => p,
+        None => protocol_of(&uri)?,
+    };
+    let name = match &req.name {
+        Some(n) => n.trim().to_string(),
+        None => default_name(&uri),
+    };
     if name.is_empty() || name.chars().count() > 64 {
         return Err(ApiError::validation("name", "entre 1 et 64 caractères"));
     }
-    let uri = req.uri.trim().trim_end_matches('/').to_string();
-    check_source_uri(req.protocol, &uri)?;
+    check_source_uri(protocol, &uri)?;
     if let Some(c) = &req.credentials {
-        if req.protocol == Protocol::Local {
+        if protocol == Protocol::Local {
             return Err(ApiError::validation(
                 "credentials",
                 "inutiles pour un dossier local",
@@ -82,7 +89,7 @@ pub async fn create(
     }
     let new = NewSource {
         name,
-        protocol: req.protocol,
+        protocol,
         uri,
         credentials: req.credentials,
     };
@@ -90,6 +97,88 @@ pub async fn create(
     tracing::info!(source = source.id, uri = %source.uri, "source ajoutée");
     request_scan(&state, Some(source.id));
     Ok((StatusCode::CREATED, Json(views::source_view(&source))))
+}
+
+/// Protocole déduit du schéma de l'URI (`file://` local, `smb://`...).
+fn protocol_of(uri: &str) -> ApiResult<Protocol> {
+    let lower = uri.to_ascii_lowercase();
+    [
+        Protocol::Local,
+        Protocol::Smb,
+        Protocol::Nfs,
+        Protocol::Webdav,
+    ]
+    .into_iter()
+    .find(|p| p.uri_schemes().iter().any(|s| lower.starts_with(s)))
+    .ok_or_else(|| ApiError::validation("uri", "URI non reconnue (file://, smb://...)"))
+}
+
+/// Nom par défaut : le dernier segment du chemin.
+fn default_name(uri: &str) -> String {
+    let last = uri
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or_default();
+    last.replace("%20", " ").chars().take(64).collect()
+}
+
+/// `POST /api/sources/scan` (202) : relance le scan de tous les dossiers, ou
+/// seulement de ceux de `uris`. Si un scan tourne, celui-ci suit.
+pub async fn scan_sources(
+    ctx: Ctx,
+    State(state): State<AppState>,
+    body: axum::body::Bytes,
+) -> ApiResult<(StatusCode, Json<ScanSourcesResponse>)> {
+    ctx.admin()?;
+    let req: ScanSourcesRequest = if body.iter().all(u8::is_ascii_whitespace) {
+        ScanSourcesRequest::default()
+    } else {
+        serde_json::from_slice::<Option<ScanSourcesRequest>>(&body)
+            .map_err(|_| ApiError::validation("uris", "liste d'URI attendue"))?
+            .unwrap_or_default()
+    };
+    let all = state.db(|s| Ok(s.list_sources()?)).await?;
+    let targets: Vec<&Source> = if req.uris.is_empty() {
+        all.iter().collect()
+    } else {
+        let norm = |u: &str| u.trim().trim_end_matches('/').to_string();
+        let mut out = Vec::new();
+        for uri in &req.uris {
+            match all.iter().find(|s| norm(&s.uri) == norm(uri)) {
+                Some(s) => out.push(s),
+                None => {
+                    return Err(ApiError::validation(
+                        "uris",
+                        format!("dossier inconnu : {uri}"),
+                    ))
+                }
+            }
+        }
+        out
+    };
+    // Un seul dossier : scan ciblé ; sinon tous (le scanner ne sait faire
+    // qu'une source ou toutes).
+    let target = match targets.as_slice() {
+        [one] => Some(one.id),
+        _ => None,
+    };
+    if !targets.is_empty() {
+        request_scan(&state, target);
+    }
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(ScanSourcesResponse {
+            scanning: targets
+                .iter()
+                .map(|s| ScanningSource {
+                    id: s.id,
+                    name: s.name.clone(),
+                    uri: s.uri.clone(),
+                })
+                .collect(),
+        }),
+    ))
 }
 
 /// `PATCH /api/sources/{id}` : nom, identifiants (`null` pour les effacer).

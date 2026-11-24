@@ -62,11 +62,16 @@ const COVERED: &[&str] = &[
     "session/select_request.json",
     "session/select_response.json",
     "media/list.json",
-    "media/detail.json",
+    "media/get_response.json",
     "player/state.json",
     "player/command_request.json",
     "queue/list.json",
     "queue/add_request.json",
+    "sources/list.json",
+    "sources/create_request.json",
+    "sources/create_response.json",
+    "sources/scan_request.json",
+    "sources/scan_response.json",
 ];
 
 #[test]
@@ -90,11 +95,16 @@ fn chaque_fixture_fait_l_aller_retour() {
     round_trip::<SelectProfileRequest>("session/select_request.json");
     round_trip::<ProfileResponse>("session/select_response.json");
     round_trip::<MediaList>("media/list.json");
-    round_trip::<MediaDetailResponse>("media/detail.json");
+    round_trip::<MediaDetailResponse>("media/get_response.json");
     round_trip::<PlayerState>("player/state.json");
     round_trip::<PlayerCommand>("player/command_request.json");
     round_trip::<QueueView>("queue/list.json");
     round_trip::<EnqueueRequest>("queue/add_request.json");
+    round_trip::<SourceList>("sources/list.json");
+    round_trip::<CreateSourceRequest>("sources/create_request.json");
+    round_trip::<SourceView>("sources/create_response.json");
+    round_trip::<ScanSourcesRequest>("sources/scan_request.json");
+    round_trip::<ScanSourcesResponse>("sources/scan_response.json");
 }
 
 #[test]

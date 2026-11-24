@@ -8,7 +8,7 @@ use rusqlite::types::Value;
 use rusqlite::{params, params_from_iter, OptionalExtension, Row};
 
 use epikodi_domain::media::{
-    Media, MediaDetails, MediaKind, MediaPage, MediaPatch, MediaQuery, MediaSort,
+    Media, MediaDetails, MediaKind, MediaPage, MediaPatch, MediaQuery, MediaSort, UserList,
 };
 use epikodi_domain::parental::Visibility;
 use epikodi_domain::ports::MediaRepo;
@@ -19,7 +19,8 @@ use crate::json;
 
 pub(crate) const COLS: &str = "m.id, m.parent_id, m.kind, m.title, m.year, m.poster_path, \
     m.duration_s, m.sort_number, m.age_rating, m.match_status, m.source_id, m.uri, \
-    m.parent_dir, m.size_bytes, m.modified_at, m.fingerprint, m.status, m.added_at";
+    m.parent_dir, m.size_bytes, m.modified_at, m.fingerprint, m.status, m.added_at, \
+    (SELECT json_extract(d.details, '$.genres') FROM media_details d WHERE d.media_id = m.id)";
 
 /// `m` = le média, `p` = son parent, `g` = son grand-parent.
 pub(crate) const FROM: &str = "FROM media m \
@@ -46,6 +47,10 @@ pub(crate) fn row(r: &Row) -> rusqlite::Result<Media> {
         fingerprint: r.get(15)?,
         status: parse_col(16, r.get(16)?)?,
         added_at: iso(r.get(17)?),
+        genres: r
+            .get::<_, Option<String>>(18)?
+            .and_then(|g| serde_json::from_str(&g).ok())
+            .unwrap_or_default(),
     })
 }
 
@@ -132,6 +137,7 @@ impl MediaRepo for Store {
             }
             // Sans parent ni filtre : le niveau du haut (films, séries...).
             None if q.kind.is_none()
+                && q.list.is_none()
                 && q.search.is_none()
                 && q.genre.is_none()
                 && q.year.is_none() =>
@@ -158,6 +164,20 @@ impl MediaRepo for Store {
                     .into(),
             );
             args.push(Value::Text(genre.clone()));
+        }
+        if let Some((list, user)) = q.list {
+            let table = match list {
+                UserList::Favorites => "favorite",
+                UserList::Watchlist => "watchlist",
+            };
+            wh.push(format!(
+                "EXISTS (SELECT 1 FROM {table} l WHERE l.media_id = m.id AND l.user_id = ?)"
+            ));
+            args.push(Value::Integer(user));
+        }
+        if let Some(age) = q.max_age {
+            wh.push("m.age_rating IS NOT NULL AND m.age_rating <= ?".into());
+            args.push(Value::Integer(age.into()));
         }
         if let Some(year) = q.year {
             wh.push("m.year = ?".into());

@@ -172,6 +172,7 @@ mod tests {
             fingerprint: None,
             status: MediaStatus::Available,
             added_at: String::new(),
+            genres: Vec::new(),
         }
     }
 
