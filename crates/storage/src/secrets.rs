@@ -43,8 +43,27 @@ impl SecretBox {
     }
 
     /// Lit la clé, ou la crée (droits 600 sous Unix) si elle n'existe pas.
+    /// Une clé existante (restauration, copie) lisible par d'autres
+    /// utilisateurs est remise en 600.
     pub fn load_or_create(path: &Path) -> std::io::Result<Self> {
+        // Un lien symbolique est refusé : corriger ses droits modifierait le
+        // fichier visé, et la clé pourrait être lue ailleurs.
+        if fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "la clé de chiffrement ne doit pas être un lien symbolique",
+            ));
+        }
         if let Ok(bytes) = fs::read(path) {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mode = fs::symlink_metadata(path)?.permissions().mode();
+                if mode & 0o077 != 0 {
+                    fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+                    tracing::warn!(path = %path.display(), "droits de la clé corrigés en 600");
+                }
+            }
             let key: [u8; 32] = bytes.try_into().map_err(|_| {
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
@@ -157,6 +176,34 @@ mod tests {
         let blob = a.encrypt(b"x").unwrap();
         let b = SecretBox::load_or_create(&path).unwrap();
         assert_eq!(b.decrypt(&blob).unwrap(), b"x");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cle_existante_trop_ouverte_remise_en_600() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("secret.key");
+        fs::write(&path, [7u8; 32]).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        SecretBox::load_or_create(&path).unwrap();
+        let mode = fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cle_en_lien_symbolique_refusee() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("ailleurs.key");
+        fs::write(&target, [7u8; 32]).unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).unwrap();
+        let link = dir.path().join("secret.key");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert!(SecretBox::load_or_create(&link).is_err());
+        let mode = fs::metadata(&target).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o644, "le fichier visé n'est pas touché");
     }
 
     #[test]
