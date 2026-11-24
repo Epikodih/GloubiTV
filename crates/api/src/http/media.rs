@@ -364,13 +364,18 @@ pub async fn poster(
     let vis = ctx.visibility()?;
     let m = state.db(move |s| visible(s, id, vis)).await?;
     let not_found = || ApiError::not_found("poster_not_found", "Pas d'affiche pour ce média.");
-    let path = m
-        .poster_path
-        .as_deref()
-        .and_then(|p| state.images.resolve(p))
+    let rel = m.poster_path.clone().ok_or_else(not_found)?;
+    // Lecture vérifiée (pas de lien symbolique, même fichier que contrôlé).
+    let images = state.images.clone();
+    let read_rel = rel.clone();
+    let bytes = tokio::task::spawn_blocking(move || images.read(&read_rel))
+        .await
+        .map_err(ApiError::internal)?
         .ok_or_else(not_found)?;
-    let bytes = tokio::fs::read(&path).await.map_err(|_| not_found())?;
-    let mime = match path.extension().and_then(|e| e.to_str()) {
+    let mime = match std::path::Path::new(&rel)
+        .extension()
+        .and_then(|e| e.to_str())
+    {
         Some("png") => "image/png",
         Some("webp") => "image/webp",
         _ => "image/jpeg",

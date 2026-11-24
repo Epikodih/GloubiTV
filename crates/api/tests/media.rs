@@ -451,3 +451,38 @@ async fn favoris_et_a_regarder_par_la_fiche() {
     let (_, l) = app.get("/api/media?list=favorites", &r).await;
     assert_eq!(l["items"], json!([]));
 }
+
+#[tokio::test]
+async fn affiche_servie_depuis_le_cache() {
+    use epikodi_domain::media::MediaPatch;
+    use epikodi_domain::ports::{ImageCache, MediaRepo};
+
+    let app = TestApp::new();
+    let d = demo(&app).await;
+    let (r, ..) = family(&app).await;
+    let rel = app
+        .state
+        .images
+        .store("poster-test", &[0xFF, 0xD8, 0xFF, 1, 2])
+        .unwrap();
+    let id = d.sintel;
+    app.state
+        .db(move |s| {
+            Ok(s.patch_media(
+                id,
+                &MediaPatch {
+                    poster_path: Some(Some(rel)),
+                    ..Default::default()
+                },
+            )?)
+        })
+        .await
+        .unwrap();
+    let (s, _) = app.get(&format!("/api/media/{id}/poster"), &r).await;
+    assert_eq!(s, StatusCode::OK);
+    // sans jeton : refusé
+    let (s, _) = app
+        .get(&format!("/api/media/{id}/poster"), &Who::Stranger)
+        .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+}

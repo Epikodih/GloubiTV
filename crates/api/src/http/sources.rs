@@ -33,7 +33,7 @@ fn source_not_found() -> ApiError {
 
 /// `GET /api/sources`
 pub async fn list(ctx: Ctx, State(state): State<AppState>) -> ApiResult<Json<SourceList>> {
-    ctx.profile()?;
+    ctx.settings()?;
     let list = state.db(|s| Ok(s.list_sources()?)).await?;
     Ok(Json(SourceList {
         sources: list.iter().map(views::source_view).collect(),
@@ -46,7 +46,7 @@ pub async fn get(
     State(state): State<AppState>,
     PathId(id): PathId,
 ) -> ApiResult<Json<SourceView>> {
-    ctx.profile()?;
+    ctx.settings()?;
     let s = state
         .db(move |s| s.get_source(id)?.ok_or_else(source_not_found))
         .await?;
@@ -59,7 +59,7 @@ pub async fn create(
     State(state): State<AppState>,
     JsonBody(req): JsonBody<CreateSourceRequest>,
 ) -> ApiResult<(StatusCode, Json<SourceView>)> {
-    ctx.admin()?;
+    ctx.settings()?;
     let uri = req.uri.trim().trim_end_matches('/').to_string();
     let protocol = match req.protocol {
         Some(p) => p,
@@ -130,7 +130,7 @@ pub async fn scan_sources(
     State(state): State<AppState>,
     body: axum::body::Bytes,
 ) -> ApiResult<(StatusCode, Json<ScanSourcesResponse>)> {
-    ctx.admin()?;
+    ctx.settings()?;
     let req: ScanSourcesRequest = if body.iter().all(u8::is_ascii_whitespace) {
         ScanSourcesRequest::default()
     } else {
@@ -188,7 +188,7 @@ pub async fn update(
     PathId(id): PathId,
     JsonBody(req): JsonBody<UpdateSourceRequest>,
 ) -> ApiResult<Json<SourceView>> {
-    ctx.admin()?;
+    ctx.settings()?;
     let s = state
         .db(move |s| {
             // nom et identifiants changent ensemble, ou pas du tout
@@ -217,7 +217,7 @@ pub async fn delete(
     State(state): State<AppState>,
     PathId(id): PathId,
 ) -> ApiResult<StatusCode> {
-    ctx.admin()?;
+    ctx.settings()?;
     if lock(&state.scan).running && lock(&state.scan).source_id.is_none_or(|s| s == id) {
         return Err(scan_in_progress());
     }
@@ -227,7 +227,7 @@ pub async fn delete(
 
 /// `GET /api/sources/discover` : partages SMB annoncés sur le réseau local.
 pub async fn discover(ctx: Ctx) -> ApiResult<Json<DiscoveredSources>> {
-    ctx.admin()?;
+    ctx.settings()?;
     let found = tokio::task::spawn_blocking(|| {
         epikodi_sources::discovery::discover_smb(Duration::from_secs(2))
     })
@@ -262,7 +262,7 @@ pub async fn scan_one(
     PathId(id): PathId,
     QueryParams(q): QueryParams<ScanQuery>,
 ) -> ApiResult<(StatusCode, Json<ScanStatus>)> {
-    ctx.admin()?;
+    ctx.settings()?;
     state
         .db(move |s| s.get_source(id)?.ok_or_else(source_not_found))
         .await?;
@@ -275,7 +275,7 @@ pub async fn scan_all(
     ctx: Ctx,
     State(state): State<AppState>,
 ) -> ApiResult<(StatusCode, Json<ScanStatus>)> {
-    ctx.admin()?;
+    ctx.settings()?;
     let status = start_scan(&state, None, None)?;
     Ok((StatusCode::ACCEPTED, Json(status)))
 }

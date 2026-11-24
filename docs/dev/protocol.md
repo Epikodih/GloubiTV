@@ -100,7 +100,7 @@ PIN : 5 essais puis verrouillage 60 s (`429 pin_locked`, `details.retry_after_s`
 
 | Route | Accès | Notes |
 |---|---|---|
-| `GET /api/sources`, `GET /api/sources/{id}` | profil | les identifiants ne sont jamais renvoyés (`has_credentials`) |
+| `GET /api/sources`, `GET /api/sources/{id}` | adulte | les identifiants ne sont jamais renvoyés (`has_credentials`) |
 | `POST /api/sources` | adulte | `{"name", "protocol": "local"|"smb", "uri", "credentials"?}` → `201` et premier scan lancé |
 | `PATCH /api/sources/{id}` | adulte | `name`, `credentials` (`null` pour les effacer) |
 | `DELETE /api/sources/{id}` | adulte | supprime la source et ses médias |
@@ -174,6 +174,7 @@ Ceux de `fixtures/README.md`, plus :
 | `starting` | 503 | base pas encore prête |
 | `localhost_only` | 403 | route réservée à l'app TV |
 | `admin_required` | 403 | action réservée à un compte non restreint |
+| `settings_forbidden` | 403 | sources (réglages du media center) demandées par un invité ou un compte restreint |
 | `route_not_found` | 404 | route inconnue |
 | `poster_not_found`, `source_not_found`, `playlist_not_found`, `playlist_item_not_found`, `queue_item_not_found`, `extension_not_found`, `device_not_found` | 404 | |
 | `playlist_name_taken`, `source_exists`, `extension_already_installed`, `extension_not_newer` | 409 | |

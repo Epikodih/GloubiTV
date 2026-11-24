@@ -226,6 +226,15 @@ impl Ctx {
     }
 
     /// Un compte non restreint.
+    /// Réglages du media center (sources) : un compte non restreint.
+    /// Invité ou compte restreint : `settings_forbidden`.
+    pub fn settings(&self) -> ApiResult<&Profile> {
+        match self.profile()?.account() {
+            Some(p) if !p.is_restricted => Ok(p),
+            _ => Err(ApiError::settings_forbidden()),
+        }
+    }
+
     pub fn admin(&self) -> ApiResult<&Profile> {
         let p = self.account()?;
         if p.is_restricted {

@@ -185,7 +185,23 @@ async fn sources_reservees_aux_adultes_et_identifiants_caches() {
         )
         .await;
     assert_eq!(s, StatusCode::FORBIDDEN);
-    assert_eq!(b["error"]["code"], "admin_required");
+    assert_eq!(b["error"]["code"], "settings_forbidden");
+    // même la liste est réservée aux adultes (contrat fixtures/README.md)
+    for path in ["/api/sources", "/api/sources/1"] {
+        let (s, b) = app.get(path, &r).await;
+        assert_eq!(s, StatusCode::FORBIDDEN, "{path}");
+        assert_eq!(b["error"]["code"], "settings_forbidden", "{path}");
+    }
+    // l'invité aussi
+    app.post("/api/session/profile", json!({"type": "guest"}), &r)
+        .await;
+    let (s, b) = app.post("/api/sources/scan", json!(null), &r).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    assert_eq!(b["error"]["code"], "settings_forbidden");
+    // sans profil choisi : on demande d'abord un profil
+    app.delete("/api/session/profile", &r).await;
+    let (_, b) = app.get("/api/sources", &r).await;
+    assert_eq!(b["error"]["code"], "profile_required");
 
     let r = admin(&app).await;
     let (s, b) = app

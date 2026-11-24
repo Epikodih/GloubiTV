@@ -21,6 +21,27 @@ impl FsImageCache {
         &self.root
     }
 
+    /// Contenu d'une image du cache (`None` : absente ou refusée).
+    ///
+    /// Le fichier réellement ouvert est comparé à celui vérifié par
+    /// [`FsImageCache::resolve`] : si le fichier a été remplacé entre les deux
+    /// (par un lien symbolique vers un autre fichier, par exemple), la
+    /// lecture est refusée.
+    pub fn read(&self, relative: &str) -> Option<Vec<u8>> {
+        use std::io::Read;
+
+        let path = self.resolve(relative)?;
+        let mut file = fs::File::open(&path).ok()?;
+        let opened = file.metadata().ok()?;
+        let checked = fs::symlink_metadata(&path).ok()?;
+        if !opened.is_file() || !checked.file_type().is_file() || !same_file(&opened, &checked) {
+            return None;
+        }
+        let mut bytes = Vec::with_capacity(opened.len() as usize);
+        file.read_to_end(&mut bytes).ok()?;
+        Some(bytes)
+    }
+
     /// Chemin absolu d'une image du cache, ou `None` si le chemin sort du
     /// cache (`..`, chemin absolu, lien symbolique) ou si le fichier n'existe
     /// pas.
@@ -70,6 +91,20 @@ fn write_atomic(dest: &Path, bytes: &[u8]) -> std::io::Result<()> {
         let _ = fs::remove_file(&tmp);
     }
     result
+}
+
+/// Les deux métadonnées désignent-elles le même fichier sur le disque ?
+#[cfg(unix)]
+fn same_file(a: &fs::Metadata, b: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    a.dev() == b.dev() && a.ino() == b.ino()
+}
+
+/// Sous Windows, créer un lien symbolique demande des droits
+/// d'administrateur : on compare taille et date de modification.
+#[cfg(not(unix))]
+fn same_file(a: &fs::Metadata, b: &fs::Metadata) -> bool {
+    a.len() == b.len() && a.modified().ok() == b.modified().ok()
 }
 
 /// Nom de fichier sûr à partir d'une clé (`tmdb-movie-123`).
@@ -140,6 +175,16 @@ mod tests {
     }
 
     #[test]
+    fn lit_une_image_du_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = FsImageCache::new(dir.path());
+        let rel = cache.store("a", b"image").unwrap();
+        assert_eq!(cache.read(&rel).unwrap(), b"image");
+        assert!(cache.read("images/absente.jpg").is_none());
+        assert!(cache.read("../secret.key").is_none());
+    }
+
+    #[test]
     fn reecrit_sans_fichier_temporaire_restant() {
         let dir = tempfile::tempdir().unwrap();
         let cache = FsImageCache::new(dir.path());
@@ -163,6 +208,10 @@ mod tests {
         fs::write(&secret, b"secret").unwrap();
         std::os::unix::fs::symlink(&secret, dir.path().join("cache/images/poster.jpg")).unwrap();
         assert!(cache.resolve("images/poster.jpg").is_none());
+        assert!(
+            cache.read("images/poster.jpg").is_none(),
+            "jamais lu via le lien"
+        );
 
         // dossier lien symbolique
         std::os::unix::fs::symlink(dir.path(), dir.path().join("cache/autre")).unwrap();
