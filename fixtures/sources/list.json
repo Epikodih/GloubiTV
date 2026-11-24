@@ -5,6 +5,7 @@
       "name": "Films",
       "protocol": "local",
       "uri": "file:///D:/Films",
+      "has_credentials": false,
       "status": "online",
       "last_scan_at": "2026-11-07T18:31:12Z",
       "media_count": 6
@@ -14,6 +15,7 @@
       "name": "series",
       "protocol": "smb",
       "uri": "smb://nas/series",
+      "has_credentials": false,
       "status": "offline",
       "last_scan_at": null,
       "media_count": 0

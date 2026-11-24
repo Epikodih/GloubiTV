@@ -27,6 +27,10 @@
         {
           "status": 422,
           "code": "validation_failed"
+        },
+        {
+          "status": 403,
+          "code": "localhost_only"
         }
       ]
     },
@@ -45,6 +49,30 @@
         {
           "status": 422,
           "code": "validation_failed"
+        },
+        {
+          "status": 403,
+          "code": "localhost_only"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/tv/status",
+      "auth": "localhost",
+      "status": 200,
+      "query": [
+        "tv_session_id"
+      ],
+      "response": "tv/status.json",
+      "errors": [
+        {
+          "status": 403,
+          "code": "localhost_only"
+        },
+        {
+          "status": 404,
+          "code": "tv_session_not_found"
         }
       ]
     },
@@ -106,6 +134,10 @@
         {
           "status": 422,
           "code": "validation_failed"
+        },
+        {
+          "status": 403,
+          "code": "admin_required"
         }
       ]
     },
@@ -161,6 +193,14 @@
         {
           "status": 422,
           "code": "validation_failed"
+        },
+        {
+          "status": 403,
+          "code": "admin_required"
+        },
+        {
+          "status": 429,
+          "code": "pin_locked"
         }
       ]
     },
@@ -260,6 +300,84 @@
         {
           "status": 404,
           "code": "media_not_found"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/player",
+      "auth": "bearer",
+      "status": 200,
+      "response": "player/state.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/player/command",
+      "auth": "bearer",
+      "status": 200,
+      "request": "player/command_request.json",
+      "response": "player/state.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/queue",
+      "auth": "bearer + profil choisi",
+      "status": 200,
+      "response": "queue/list.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/queue",
+      "auth": "bearer + profil choisi",
+      "status": 200,
+      "request": "queue/add_request.json",
+      "response": "queue/list.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        },
+        {
+          "status": 404,
+          "code": "media_not_found"
+        },
+        {
+          "status": 409,
+          "code": "nothing_to_play"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
         }
       ]
     },

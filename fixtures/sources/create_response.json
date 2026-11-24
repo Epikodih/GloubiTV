@@ -3,6 +3,7 @@
   "name": "Musique",
   "protocol": "local",
   "uri": "file:///D:/Musique",
+  "has_credentials": false,
   "status": "unknown",
   "last_scan_at": null,
   "media_count": 0

@@ -37,6 +37,13 @@ Chaque fichier fixe la **forme** d'une requête ou d'une réponse (champs et typ
 | `POST /api/sources` (201) | Bearer + compte non restreint | `sources/create_request.json` | `sources/create_response.json` |
 | `DELETE /api/sources/{id}` (204) | Bearer + compte non restreint | | |
 | `POST /api/sources/scan` (202) | Bearer + compte non restreint | `sources/scan_request.json` (facultatif) | `sources/scan_response.json` |
+| `GET /api/player` | Bearer | | `player/state.json` |
+| `POST /api/player/command` | Bearer | `player/command_request.json` | `player/state.json` |
+| `GET /api/queue` | Bearer + profil choisi | | `queue/list.json` |
+| `POST /api/queue` | Bearer + profil choisi | `queue/add_request.json` | `queue/list.json` |
+
+Les autres routes (listes, extensions, WebSocket...) sont
+décrites dans `docs/dev/protocol.md`.
 
 `routes.json` reprend ce tableau, avec les codes d'erreur possibles de chaque route.
 
@@ -107,11 +114,15 @@ Chaque fichier fixe la **forme** d'une requête ou d'une réponse (champs et typ
 | `profile_not_found` | 404 | Profil inconnu |
 | `profile_name_taken` | 409 | Nom déjà pris |
 | `validation_failed` | 422 | Champ invalide (`details.fields`) |
-| `media_not_found` | 404 | Média ou `parent_id` inconnu |
+| `media_not_found` | 404 | Média ou `parent_id` inconnu, ou média masqué par le contrôle parental |
 | `settings_forbidden` | 403 | Réglages du media center demandés par un invité ou un compte restreint |
 | `source_not_found` | 404 | Dossier de scan inconnu |
 | `source_exists` | 409 | Dossier déjà ajouté |
 | `invalid_query` | 422 | Paramètre invalide (`details.fields`) |
+| `localhost_only` | 403 | Route réservée à l'app TV (accès local) |
+| `admin_required` | 403 | Action réservée à un compte non restreint |
+
+Liste complète : `docs/dev/protocol.md`.
 
 Seule exception : `GET /api/health` répond `503` avec `{"status": "starting"}` tant que la base n'est pas prête.
 
@@ -124,10 +135,12 @@ Seule exception : `GET /api/health` répond `503` avec `{"status": "starting"}` 
 5. Les médias `missing` sont renvoyés dans la liste.
 6. Favoris, « À regarder » et recherche passent par `GET /api/media` (paramètres `list`, `q`, `genre`, `max_age`) : même réponse partout, une seule route à tester. On ajoute ou retire avec `PUT` / `DELETE /api/media/{id}/favorite` (ou `/watchlist`).
 
-## Écarts avec `schema.sql` à régler
+## Écarts avec `schema.sql` (réglés)
 
-- **PIN par compte** : le document le prévoit pour chaque compte non restreint. Le schéma n'a qu'un `parental_pin_hash` global dans `app_state` et rien dans `user`. Il faut ajouter `user.pin_hash`, ou revenir à un PIN global.
-- **Âge à la création** : `user.age` est obligatoire dans le schéma, mais le document ne demande que le nom et la restriction. Les fixtures contiennent `age`.
+La migration `crates/storage/migrations/0002_profiles_devices.sql` ajoute :
+
+- **PIN par compte** : `user.pin_hash` (argon2). `app_state.parental_pin_hash` n'est plus utilisé.
+- **Âge à la création** : obligatoire, comme dans les fixtures.
+- **Appareil** : `device.install_id`, `platform`, `expires_at`, `last_seen_at`.
 - **Dossiers de scan** : `source` n'a pas de compteur de médias ; `media_count` se calcule avec `COUNT(*)` sur `media.source_id`.
-- **« À regarder »** : le schéma a `favorite` mais aucune table pour la liste « À regarder ». Il faut ajouter `watchlist(user_id, media_id, added_at)`.
-- **Appareil** : le document parle d'un `install_id` et d'une expiration du token. `device` n'a ni l'un ni l'autre.
+- **« À regarder »** : table `watchlist(user_id, media_id, added_at)`.

@@ -16,5 +16,23 @@
   "status": "available",
   "overview": "Une jeune femme part à la recherche du bébé dragon qu'elle a recueilli.",
   "in_favorites": false,
-  "in_watchlist": true
+  "in_watchlist": true,
+  "details": {
+    "overview": "Une jeune femme part à la recherche du bébé dragon qu'elle a recueilli.",
+    "genres": [
+      "Animation",
+      "Fantastique"
+    ],
+    "provider": "demo"
+  },
+  "ancestors": [],
+  "children_count": 0,
+  "progress": {
+    "position_s": 312,
+    "is_watched": false,
+    "last_played_at": "2026-11-07T18:31:12Z",
+    "resume_at_s": 312
+  },
+  "is_watched": false,
+  "playback_uri": null
 }
