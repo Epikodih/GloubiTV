@@ -88,6 +88,8 @@ La TV ne choisit jamais seule ce qu'elle lit ([ADR 0002](../adr/0002-lecture-pil
 
 Sans lecteur ouvert, les commandes autres que `load` sont ignorées.
 
+Sous macOS, l'app TV tourne hors du bac à sable d'Apple (`apps/tv/macos/Runner/*.entitlements`) : sinon elle ne pourrait ni joindre le cœur ni lire les fichiers de la médiathèque.
+
 ### État publié
 
 `PlayerReporter` publie l'état réel avec `POST /api/player/state` (`status`, `position_s`, `duration_s`, pistes) :

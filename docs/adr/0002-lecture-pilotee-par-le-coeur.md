@@ -32,6 +32,7 @@ Côté TV, `PlaybackHost` (`apps/tv/lib/player/server_player.dart`) écoute le W
 ## Conséquences
 
 - La TV et le cœur doivent tourner sur la même machine (ou voir les fichiers au même chemin). Une TV distante demanderait de rétablir une route de flux.
+- Sous macOS, l'app TV n'est pas dans le bac à sable d'Apple (`com.apple.security.app-sandbox` à `false`) : elle doit joindre le cœur en local et lire les fichiers où qu'ils soient (`~/Movies`, disque externe). Une distribution par l'App Store demanderait de revoir ce point.
 - La reprise de lecture (#24) est calculée par le cœur : la TV ne fait qu'ouvrir à `start_s`.
 - Les touches locales de la TV (pause, avance) agissent directement sur le moteur ; l'état publié garde le cœur à jour.
 - L'ordre des commandes et des états reste à fiabiliser côté cœur (#41, numéro `seq`).
