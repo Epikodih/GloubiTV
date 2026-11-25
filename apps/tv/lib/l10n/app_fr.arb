@@ -170,6 +170,7 @@
   "close": "Fermer",
   "play": "Lecture",
   "playSoon": "La lecture arrive bientôt.",
+  "playRequestError": "Impossible de lancer la lecture.",
   "addFavorite": "Ajouter aux favoris",
   "inFavorites": "Dans les favoris",
   "addWatchlist": "À regarder plus tard",

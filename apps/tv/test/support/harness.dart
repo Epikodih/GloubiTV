@@ -19,11 +19,15 @@ final en = lookupAppLocalizations(const Locale('en'));
 /// Monte [home] dans la même enveloppe que l'app (thème, langue, réglages
 /// d'affichage), sur un écran 1920×1080, animations réduites par défaut
 /// (Gloubi affiche alors une image fixe ; voir [gloubiShowing]).
+/// [wrap] entoure le navigateur, comme `MaterialApp.builder` dans l'app
+/// (ex. `PlaybackHost`, avec [navigatorKey]).
 Future<void> pumpTv(
   WidgetTester tester,
   Widget home, {
   Size size = const Size(1920, 1080),
   bool reducedMotion = true,
+  GlobalKey<NavigatorState>? navigatorKey,
+  Widget Function(Widget child)? wrap,
 }) async {
   appLocale.value = const Locale('fr');
   tester.view
@@ -37,12 +41,13 @@ Future<void> pumpTv(
   await tester.pumpWidget(ValueListenableBuilder<Locale>(
     valueListenable: appLocale,
     builder: (context, locale, _) => MaterialApp(
+      navigatorKey: navigatorKey,
       theme: AppTheme.dark(),
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) =>
-          AppUiScope(settings: settings, child: child!),
+      builder: (context, child) => AppUiScope(
+          settings: settings, child: wrap == null ? child! : wrap(child!)),
       home: home,
     ),
   ));

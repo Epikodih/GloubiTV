@@ -53,10 +53,9 @@ Future<bool> showMediaDetails(
   return changed ?? false;
 }
 
-/// Ouvre le lecteur sur [media] depuis la fiche ([context] : celui de la
-/// fiche, pour empiler le lecteur au-dessus).
-typedef MediaPlayCallback = void Function(
-    BuildContext context, Map<String, dynamic> media);
+/// Demande la lecture de [media] au cœur, qui ouvre ensuite le lecteur.
+/// Lève [ApiException] si le cœur refuse (rien à lire, média masqué…).
+typedef MediaPlayCallback = Future<void> Function(Map<String, dynamic> media);
 
 /// Contenu de la fiche : affiche, titre, infos (année, type, durée,
 /// classification, genres), résumé, puis les actions : Lecture, Favoris,
@@ -76,13 +75,9 @@ class MediaDetailsDialog extends StatefulWidget {
   /// Invité : listes de la session, gardées par la TV.
   final SessionLists? guestLists;
 
-  /// Ouvre le lecteur sur un média lisible. Absent : « Lecture » affiche
-  /// seulement que la lecture arrive bientôt.
+  /// Demande la lecture au cœur. Absent : « Lecture » affiche seulement que
+  /// la lecture arrive bientôt.
   final MediaPlayCallback? onPlay;
-
-  /// Types qui ont un fichier à lire (les autres sont des conteneurs :
-  /// série, album, artiste, podcast).
-  static const playableKinds = {'movie', 'episode', 'track', 'podcast_episode'};
 
   @override
   State<MediaDetailsDialog> createState() => _MediaDetailsDialogState();
@@ -175,17 +170,30 @@ class _MediaDetailsDialogState extends State<MediaDetailsDialog> {
     }
   }
 
-  void _play() {
+  /// « Lecture » : le cœur lit le média (une série reprend au premier
+  /// épisode non vu, un album à sa première piste) et ouvre le lecteur
+  /// par-dessus la fiche. Un refus s'affiche dans la fiche.
+  Future<void> _play() async {
     final onPlay = widget.onPlay;
-    if (onPlay != null &&
-        _media['status'] != 'missing' &&
-        MediaDetailsDialog.playableKinds.contains(_media['kind'])) {
-      setState(() => _message = null);
-      onPlay(context, _media);
+    if (onPlay == null) {
+      setState(() => _message = AppLocalizations.of(context)!.playSoon);
       return;
     }
-    // À brancher : séries et albums (saisons, pistes), reprise.
-    setState(() => _message = AppLocalizations.of(context)!.playSoon);
+    if (_busy || _media['status'] == 'missing') return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await onPlay(_media);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _message = e is ApiException
+          ? e.message
+          : AppLocalizations.of(context)!.playRequestError);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   void _close() => Navigator.of(context).pop(_changed);

@@ -378,6 +378,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get playSoon => 'La lecture arrive bientôt.';
 
   @override
+  String get playRequestError => 'Impossible de lancer la lecture.';
+
+  @override
   String get addFavorite => 'Ajouter aux favoris';
 
   @override

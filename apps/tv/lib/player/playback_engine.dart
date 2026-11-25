@@ -13,7 +13,7 @@ abstract class PlaybackEngine {
   /// État courant, mis à jour par le moteur (position, pistes, erreurs…).
   ValueListenable<PlaybackState> get state;
 
-  /// Ouvre [source] et lance la lecture.
+  /// Ouvre [source] et lance la lecture à partir de [PlaybackSource.start].
   Future<void> open(PlaybackSource source);
 
   Future<void> play();
@@ -30,6 +30,12 @@ abstract class PlaybackEngine {
 
   /// Choisit les sous-titres, ou les désactive avec `null`.
   Future<void> setSubtitleTrack(MediaTrack? track);
+
+  /// Volume de 0 à 100 ; [muted] coupe le son sans perdre le niveau.
+  Future<void> setVolume(int level, {bool muted = false});
+
+  /// Décale les sous-titres (positif : plus tard, négatif : plus tôt).
+  Future<void> setSubtitleDelay(Duration delay);
 
   /// Surface vidéo (sans contrôles : l'écran de lecture dessine les siens),
   /// avec les sous-titres dessinés selon [subtitleStyle].

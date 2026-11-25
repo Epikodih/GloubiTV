@@ -169,6 +169,7 @@
   "close": "Close",
   "play": "Play",
   "playSoon": "Playback is coming soon.",
+  "playRequestError": "Could not start playback.",
   "addFavorite": "Add to favorites",
   "inFavorites": "In favorites",
   "addWatchlist": "Watch later",

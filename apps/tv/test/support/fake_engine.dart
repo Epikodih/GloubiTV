@@ -62,6 +62,14 @@ class FakeEngine extends PlaybackEngine {
   }
 
   @override
+  Future<void> setVolume(int level, {bool muted = false}) async =>
+      calls.add('volume $level${muted ? ' muet' : ''}');
+
+  @override
+  Future<void> setSubtitleDelay(Duration delay) async =>
+      calls.add('sub-delay ${delay.inMilliseconds}');
+
+  @override
   Widget buildVideo(
     BuildContext context, {
     SubtitleStyle subtitleStyle = const SubtitleStyle(),

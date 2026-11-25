@@ -1,22 +1,28 @@
 import 'package:flutter/foundation.dart';
 
-/// Ce que le lecteur doit ouvrir : une URL (flux HTTP du cœur, fichier local)
-/// et les en-têtes à envoyer avec (token Bearer pour le flux du cœur).
+/// Ce que le lecteur doit ouvrir, tel que le cœur l'envoie dans la commande
+/// `load` (`now_playing.uri`, `start_s`).
 @immutable
 class PlaybackSource {
   const PlaybackSource({
     required this.uri,
     required this.title,
+    this.start = Duration.zero,
     this.headers = const {},
   });
 
-  /// Adresse lue par le moteur (`http://…/stream`, `file:///…`).
+  /// Adresse lue par le moteur : chemin du fichier sur la machine du cœur
+  /// (l'app TV tourne sur la même machine), ou URL d'un lien envoyé vers la
+  /// télé.
   final String uri;
 
   /// Titre affiché et annoncé par le lecteur d'écran.
   final String title;
 
-  /// En-têtes HTTP (ex. `Authorization: Bearer …`). Jamais journalisés.
+  /// Position de départ (reprise de lecture calculée par le cœur).
+  final Duration start;
+
+  /// En-têtes HTTP éventuels pour une URL. Jamais journalisés.
   final Map<String, String> headers;
 }
 

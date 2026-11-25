@@ -65,6 +65,9 @@ const COVERED: &[&str] = &[
     "media/get_response.json",
     "player/state.json",
     "player/command_request.json",
+    "player/play_request.json",
+    "player/state_request.json",
+    "events/player_command_load.json",
     "queue/list.json",
     "queue/add_request.json",
     "sources/list.json",
@@ -98,6 +101,9 @@ fn chaque_fixture_fait_l_aller_retour() {
     round_trip::<MediaDetailResponse>("media/get_response.json");
     round_trip::<PlayerState>("player/state.json");
     round_trip::<PlayerCommand>("player/command_request.json");
+    round_trip::<PlayRequest>("player/play_request.json");
+    round_trip::<PlayerReport>("player/state_request.json");
+    round_trip::<Event>("events/player_command_load.json");
     round_trip::<QueueView>("queue/list.json");
     round_trip::<EnqueueRequest>("queue/add_request.json");
     round_trip::<SourceList>("sources/list.json");

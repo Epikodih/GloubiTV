@@ -374,6 +374,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playSoon => 'Playback is coming soon.';
 
   @override
+  String get playRequestError => 'Could not start playback.';
+
+  @override
   String get addFavorite => 'Add to favorites';
 
   @override

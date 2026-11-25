@@ -31,7 +31,6 @@ Chaque fichier fixe la **forme** d'une requête ou d'une réponse (champs et typ
 | `POST /api/session/profile` | Bearer | `session/select_request.json` | `session/select_response.json` |
 | `GET /api/media` | Bearer + profil choisi | | `media/list.json` |
 | `GET /api/media/{id}` | Bearer + profil choisi | | `media/get_response.json` |
-| `GET /api/media/{id}/stream` (200 ou 206) | Bearer + profil choisi | en-tête `Range` facultatif | corps binaire (pas de fixture) |
 | `PUT` / `DELETE /api/media/{id}/favorite` (204) | Bearer + profil choisi | | |
 | `PUT` / `DELETE /api/media/{id}/watchlist` (204) | Bearer + profil choisi | | |
 | `GET /api/sources` | Bearer + compte non restreint | | `sources/list.json` |
@@ -40,6 +39,8 @@ Chaque fichier fixe la **forme** d'une requête ou d'une réponse (champs et typ
 | `POST /api/sources/scan` (202) | Bearer + compte non restreint | `sources/scan_request.json` (facultatif) | `sources/scan_response.json` |
 | `GET /api/player` | Bearer | | `player/state.json` |
 | `POST /api/player/command` | Bearer | `player/command_request.json` | `player/state.json` |
+| `POST /api/player/play` | Bearer + profil choisi | `player/play_request.json` | `player/state.json` |
+| `POST /api/player/state` | local (app TV) | `player/state_request.json` | `player/state.json` |
 | `GET /api/queue` | Bearer + profil choisi | | `queue/list.json` |
 | `POST /api/queue` | Bearer + profil choisi | `queue/add_request.json` | `queue/list.json` |
 
@@ -86,12 +87,6 @@ décrites dans `docs/dev/protocol.md`.
 - `in_favorites`, `in_watchlist` : le média est dans les favoris / la liste « À regarder » du profil actif (toujours `false` pour un invité).
 - Un média que le profil n'a pas le droit de voir répond `media_not_found`, comme un média inconnu.
 
-**`GET /api/media/{id}/stream`** : sert le fichier d'une feuille (`movie`, `episode`, `track`, `podcast_episode`) pour le lecteur de la TV.
-- Le lecteur envoie le token dans l'en-tête `Authorization` (jamais dans l'URL : elle peut finir dans les journaux).
-- Avec `Range: bytes=début-fin`, le serveur répond `206` et `Content-Range` : c'est ce qui permet l'avance rapide sans tout télécharger. Sans `Range`, `200` et le fichier entier.
-- `Content-Type` est le type MIME du fichier (`video/x-matroska`, `video/mp4`, `audio/flac`…).
-- Même filtre parental que la liste : un média invisible pour le profil répond `404 media_not_found`.
-
 **`PUT` / `DELETE /api/media/{id}/favorite`** et **`/watchlist`** : ajoute ou retire le média de la liste du profil actif. Sans corps, réponse `204` sans corps. Idempotent : ajouter un média déjà présent ou retirer un média absent répond aussi `204`. Un invité reçoit `guest_forbidden` : la TV garde elle-même ses favoris et sa liste « À regarder », en mémoire, le temps de la session (perdus en changeant de profil).
 
 **`sources`** : les dossiers que le media center scanne (table `source`). Réservé aux comptes non restreints : un invité ou un compte restreint reçoit `settings_forbidden`.
@@ -103,6 +98,11 @@ décrites dans `docs/dev/protocol.md`.
   - sans corps (ou `uris` vide) : **tous** les dossiers sont rescannés (bouton « Tout scanner ») ;
   - avec `{"uris": [...]}` : seulement ces dossiers (les `uri` de `sources/list`), par exemple le bouton « Rescanner » d'un dossier.
   Réponse `202` : `scanning` liste les dossiers dont le scan démarre ; il tourne en arrière-plan (`last_scan_at` et `media_count` se mettent à jour ensuite). Une URI qui n'est pas un dossier ajouté : `validation_failed` (`details.fields.uris`), rien n'est lancé.
+
+**Lecture pilotée par le cœur** : la TV ne choisit jamais seule ce qu'elle lit.
+- `POST /api/player/play` lance un média (toutes ses feuilles : une série reprend au premier épisode non vu), un élément de la file ou une liste de lecture. Un seul de `media_id`, `queue_item_id`, `playlist_id` ; `resume` (vrai par défaut) reprend là où le profil s'était arrêté. Rien à lire : `nothing_to_play`.
+- Le cœur envoie alors à la TV l'événement WebSocket `player.command` (`events/player_command_load.json`) : `action: "load"`, `now_playing.uri` (chemin du fichier sur la machine du cœur, ou URL d'un lien envoyé vers la télé) et `start_s` (position de reprise). Les autres actions (`play`, `pause`, `toggle`, `stop`, `seek`, `seek_relative`, `volume`, `audio_track`, `subtitle_track`, `subtitle_delay`) pilotent le lecteur ouvert.
+- La TV publie l'état réel avec `POST /api/player/state` (route locale) : à chaque changement de statut ou de piste, et toutes les 5 s pendant la lecture. `status: "ended"` fait enchaîner le média suivant ; le cœur enregistre la reprise.
 
 ## Codes d'erreur
 
@@ -126,9 +126,7 @@ décrites dans `docs/dev/protocol.md`.
 | `source_not_found` | 404 | Dossier de scan inconnu |
 | `source_exists` | 409 | Dossier déjà ajouté |
 | `invalid_query` | 422 | Paramètre invalide (`details.fields`) |
-| `media_unavailable` | 410 | Fichier du média introuvable (`status: "missing"`, NAS débranché) |
-| `range_not_satisfiable` | 416 | `Range` hors du fichier |
-| `not_playable` | 422 | Média sans fichier (série, saison, artiste, album) |
+| `nothing_to_play` | 409 | Rien à lire (série sans épisode, file vide) |
 | `localhost_only` | 403 | Route réservée à l'app TV (accès local) |
 | `admin_required` | 403 | Action réservée à un compte non restreint |
 

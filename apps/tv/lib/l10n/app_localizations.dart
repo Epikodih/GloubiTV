@@ -716,6 +716,12 @@ abstract class AppLocalizations {
   /// **'La lecture arrive bientôt.'**
   String get playSoon;
 
+  /// No description provided for @playRequestError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de lancer la lecture.'**
+  String get playRequestError;
+
   /// No description provided for @addFavorite.
   ///
   /// In fr, this message translates to:

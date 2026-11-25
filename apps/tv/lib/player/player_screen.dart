@@ -30,6 +30,7 @@ class PlayerScreen extends StatefulWidget {
     this.hideDelay = const Duration(seconds: 5),
     this.subtitleStyle = const SubtitleStyle(),
     this.onSubtitleStyleChanged,
+    this.onClosing,
   });
 
   /// Moteur de lecture. L'écran l'ouvre, puis le libère en se fermant.
@@ -43,6 +44,10 @@ class PlayerScreen extends StatefulWidget {
   /// Appelé quand l'utilisateur change l'apparence dans le panneau, pour la
   /// garder d'une lecture à l'autre.
   final ValueChanged<SubtitleStyle>? onSubtitleStyleChanged;
+
+  /// Appelé à la fermeture, avec le dernier état, juste avant de libérer le
+  /// moteur (le cœur enregistre ainsi la position de reprise).
+  final ValueChanged<PlaybackState>? onClosing;
 
   static const rewindStep = Duration(seconds: 10);
   static const forwardStep = Duration(seconds: 30);
@@ -96,6 +101,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _rootFocus.dispose();
     _playFocus.dispose();
     _subtitleStyle.dispose();
+    widget.onClosing?.call(_engine.state.value);
     _engine.dispose();
     super.dispose();
   }

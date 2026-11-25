@@ -68,8 +68,28 @@ class MediaKitEngine extends PlaybackEngine {
   Future<void> open(PlaybackSource source) async {
     // Nouveau média : on repart d'un état vierge (pas d'ancienne erreur).
     _update((_) => const PlaybackState());
-    await _player.open(Media(source.uri, httpHeaders: source.headers));
+    final media = Media(source.uri, httpHeaders: source.headers);
+    if (source.start <= Duration.zero) {
+      await _player.open(media);
+      return;
+    }
+    // Reprise : on attend que mpv connaisse la durée avant d'aller à la
+    // position, sinon la demande est ignorée. Fichier illisible : on lit
+    // depuis le début (l'erreur s'affiche par le flux d'erreurs).
+    await _player.open(media, play: false);
+    try {
+      await _player.stream.duration
+          .firstWhere((d) => d > Duration.zero)
+          .timeout(startTimeout);
+      await seek(source.start);
+    } on TimeoutException {
+      // durée inconnue : pas de reprise
+    }
+    await _player.play();
   }
+
+  /// Attente maximale de la durée du fichier avant une reprise.
+  static const startTimeout = Duration(seconds: 10);
 
   @override
   Future<void> play() => _player.play();
@@ -96,6 +116,20 @@ class MediaKitEngine extends PlaybackEngine {
   Future<void> setSubtitleTrack(MediaTrack? track) async {
     final t = track == null ? SubtitleTrack.no() : _subtitleById[track.id];
     if (t != null) await _player.setSubtitleTrack(t);
+  }
+
+  @override
+  Future<void> setVolume(int level, {bool muted = false}) =>
+      _player.setVolume(muted ? 0 : level.clamp(0, 100).toDouble());
+
+  @override
+  Future<void> setSubtitleDelay(Duration delay) async {
+    // Propriété mpv `sub-delay`, en secondes (pas d'API media_kit dédiée).
+    final native = _player.platform;
+    if (native is NativePlayer) {
+      await native.setProperty(
+          'sub-delay', (delay.inMilliseconds / 1000).toString());
+    }
   }
 
   @override

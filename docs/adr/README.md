@@ -5,6 +5,7 @@ Chaque décision structurante est consignée dans un fichier `NNNN-titre.md` : c
 | N° | Décision | Statut |
 |---|---|---|
 | [0001](0001-moteur-de-lecture.md) | Moteur de lecture de l'app TV : media_kit (libmpv) | accepté |
+| [0002](0002-lecture-pilotee-par-le-coeur.md) | Lecture pilotée par le cœur (`player.command`), sans route de flux | accepté |
 
 ## Modèle
 

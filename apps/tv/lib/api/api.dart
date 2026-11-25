@@ -1,7 +1,5 @@
 import 'package:epikodi_client/epikodi_client.dart';
 
-import '../player/playback_state.dart';
-
 /// Routes de comptes / session / médiathèque, utilisées par la TV uniquement.
 ///
 /// Ce fichier vit dans l'app TV. Il ne refait aucun HTTP : tout passe par
@@ -21,7 +19,7 @@ import '../player/playback_state.dart';
 /// - PATCH /api/profiles/{id}   -> modifier un compte (PIN si restriction d'âge)
 /// - GET   /api/media           -> médias du compte actif (catégorie,
 ///                                  favoris, « À regarder », recherche)
-/// - GET   /api/media/{id}/stream -> fichier à lire (via [streamSource])
+/// - POST  /api/player/play     -> lancer un média sur la TV
 class Api {
   const Api(this._client);
 
@@ -178,19 +176,15 @@ class Api {
 
   // ---------------------------------------------------------------- lecture
 
-  /// Source de lecture d'un média (film, épisode, morceau…).
+  /// Demande au cœur de lire [mediaId] sur la TV (toutes ses feuilles : une
+  /// série reprend au premier épisode non vu). [resume] reprend là où le
+  /// profil s'était arrêté.
   ///
-  /// Le moteur lit `GET /api/media/{id}/stream` lui-même (requêtes `Range`
-  /// pour l'avance rapide) : on lui donne l'URL et le token à mettre dans
-  /// l'en-tête `Authorization`, jamais dans l'URL.
-  PlaybackSource streamSource(Map<String, dynamic> media) {
-    final token = _client.token;
-    return PlaybackSource(
-      uri: '$baseUrl/api/media/${media['id']}/stream',
-      title: '${media['title'] ?? ''}',
-      headers: {if (token != null) 'Authorization': 'Bearer $token'},
-    );
-  }
+  /// Le cœur répond avec l'état du lecteur, puis envoie à la TV l'événement
+  /// `player.command` (`load`) qui ouvre le lecteur : la TV ne choisit jamais
+  /// seule ce qu'elle lit. Rien à lire : [ApiException] `nothing_to_play`.
+  Future<void> play(Object mediaId, {bool resume = true}) => _client
+      .post('/api/player/play', body: {'media_id': mediaId, 'resume': resume});
 
   // ----------------------------------------------------------------- interne
 

@@ -4,28 +4,34 @@
 
 Le contrat de référence est [fixtures/routes.json](../../fixtures/routes.json), décrit dans [fixtures/README.md](../../fixtures/README.md).
 
-## Flux de lecture
+## Lecture
 
-`GET /api/media/{id}/stream` sert le fichier d'un média lisible (film, épisode, morceau, épisode de podcast) au lecteur de l'app TV (#20).
+La lecture est pilotée par le cœur ([ADR 0002](../adr/0002-lecture-pilotee-par-le-coeur.md)) : la TV et les télécommandes partagent un seul lecteur.
 
-| Point | Règle |
-|---|---|
-| Authentification | `Authorization: Bearer <token>` dans l'en-tête, jamais dans l'URL |
-| Avance rapide | `Range: bytes=…` → `206 Partial Content` + `Content-Range` |
-| Filtre parental | un média invisible pour le profil répond `404 media_not_found` |
-| Fichier absent | `410 media_unavailable` (NAS débranché, fichier supprimé) |
-| Conteneur | `422 not_playable` (série, saison, artiste, album) |
+| Étape | Route ou événement | Qui |
+|---|---|---|
+| Demander la lecture | `POST /api/player/play` `{"media_id": 2, "resume": true}` | médiathèque de la TV, télécommande |
+| Ouvrir le fichier | événement WebSocket `player.command`, `action: "load"` | cœur → TV |
+| Piloter | `POST /api/player/command` (`pause`, `seek`, `volume`…) → `player.command` | télécommande → cœur → TV |
+| Publier l'état réel | `POST /api/player/state` (route locale) | TV → cœur |
+| Suivre l'état | événement `player.state`, `GET /api/player` | télécommandes |
 
-Côté TV, `Api.streamSource(media)` construit la `PlaybackSource` (URL + en-tête) donnée au moteur.
+Exemple de commande reçue par la TV (`fixtures/events/player_command_load.json`) :
 
-Exemple :
-
-```http
-GET /api/media/1/stream HTTP/1.1
-Authorization: Bearer <token>
-Range: bytes=1048576-
-
-HTTP/1.1 206 Partial Content
-Content-Type: video/x-matroska
-Content-Range: bytes 1048576-734003199/734003200
+```json
+{
+  "type": "player.command",
+  "data": {
+    "action": "load",
+    "now_playing": {
+      "title": "Sintel",
+      "uri": "/home/demo/media-demo/Films/Sintel (2010).mkv",
+      "queue_item_id": 4,
+      "media": { "id": 2, "kind": "movie", "...": "..." }
+    },
+    "start_s": 312.5
+  }
+}
 ```
+
+`uri` est le chemin du fichier sur la machine du cœur : la TV, qui tourne sur la même machine, l'ouvre directement. Pour un lien envoyé vers la télé (`POST /api/player/cast`), c'est une URL.

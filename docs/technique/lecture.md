@@ -72,16 +72,44 @@ Le bouton **Audio et sous-titres** du lecteur ouvre un panneau à droite (`apps/
 
 L'écran reçoit le style initial (`subtitleStyle`) et signale chaque changement (`onSubtitleStyleChanged`). L'enregistrement dans les préférences du profil (`user.preferences.subtitles`) attend la route correspondante du cœur.
 
-## Ouvrir un média depuis la médiathèque
+## Lecture pilotée par le cœur
 
-Dans la médiathèque (`apps/tv/lib/library/library_screen.dart`, #23) :
+La TV ne choisit jamais seule ce qu'elle lit ([ADR 0002](../adr/0002-lecture-pilotee-par-le-coeur.md)). `PlaybackHost` (`apps/tv/lib/player/server_player.dart`), placé au-dessus du navigateur de l'app, écoute le WebSocket du cœur (`GET /api/ws`) quel que soit l'écran affiché.
 
-- **Entrée sur un film** (ou un épisode, un morceau, un épisode de podcast) ouvre le lecteur sur `GET /api/media/{id}/stream`, avec le token dans l'en-tête.
-- **Retour** ferme le lecteur, libère le moteur et rend le focus à la carte d'origine.
-- **Média indisponible** (`status: "missing"`) : la carte affiche « Indisponible » avec une icône, le lecteur d'écran l'annonce (« Elephants Dream, Indisponible »), et Entrée ne lance rien.
-- **Séries, artistes, podcasts** : ce sont des conteneurs ; leur ouverture (saisons, albums) n'est pas encore branchée.
-- Un moteur neuf est créé à chaque lecture (`engineFactory`, media_kit par défaut). Le style des sous-titres choisi est gardé pendant la session.
+| Commande `player.command` | Effet sur la TV |
+|---|---|
+| `load` | ouvre le lecteur sur `now_playing.uri` (chemin du fichier sur la machine du cœur) à partir de `start_s` ; un lecteur déjà ouvert est remplacé, pas empilé |
+| `play`, `pause`, `toggle` | lecture, pause, bascule |
+| `seek`, `seek_relative` | va à `position_s`, ou avance / recule de `delta_s` |
+| `volume` | niveau de 0 à 100, `muted` coupe le son |
+| `audio_track`, `subtitle_track` | choisit la piste par son identifiant (`null` : sous-titres désactivés) |
+| `subtitle_delay` | décale les sous-titres de `delay_ms` |
+| `stop` | ferme le lecteur |
+
+Sans lecteur ouvert, les commandes autres que `load` sont ignorées.
+
+### État publié
+
+`PlayerReporter` publie l'état réel avec `POST /api/player/state` (`status`, `position_s`, `duration_s`, pistes) :
+
+- à chaque changement de statut (`loading`, `playing`, `paused`, `ended`, `error`) ou de piste, une seule fois chacun : un `ended` envoyé deux fois ferait sauter un média ;
+- toutes les 5 s pendant la lecture, pour la position ;
+- `stopped` avec la position quand l'utilisateur quitte par Retour (le cœur enregistre la reprise) ;
+- rien quand le cœur remplace le média ou demande l'arrêt : il est déjà au courant.
+
+### Depuis la médiathèque
+
+- **OK sur une affiche** ouvre sa fiche ; **Lecture** envoie `POST /api/player/play` (`media_id`, `resume: true`). Le cœur répond, puis envoie `load` : le lecteur s'ouvre par-dessus la fiche.
+- **Retour** ferme le lecteur, libère le moteur et rend le focus à « Lecture » dans la fiche.
+- **Séries, albums** : le cœur lit toutes leurs feuilles (une série reprend au premier épisode non vu). Rien à lire : le message du cœur s'affiche dans la fiche.
+- **Média indisponible** (`status: "missing"`) : la carte l'annonce (« Elephants Dream, Indisponible ») et « Lecture » est désactivé dans la fiche.
+- Un moteur neuf est créé à chaque `load` (`engineFactory`, media_kit par défaut). Le style des sous-titres choisi est gardé pendant la session.
+
+### Tests
+
+- `apps/tv/test/playback_host_test.dart` : chaque commande, remplacement du lecteur, états publiés (une fois chacun, toutes les 5 s, `stopped` au Retour), forme du rapport comparée à `fixtures/player/state_request.json`.
+- `apps/tv/test/library_playback_test.dart` : parcours fiche → Lecture → lecteur → Retour, refus du cœur, média indisponible.
 
 ## Reprise de lecture
 
-_À compléter (#24)._
+Le cœur calcule la position de reprise du profil et l'envoie dans `load` (`start_s`) ; `MediaKitEngine` attend que la durée du fichier soit connue, va à cette position, puis lance la lecture. Le cœur enregistre la position à partir des états publiés (toutes les 10 s, et à la pause, à l'arrêt et à la fin). Reste à afficher « Reprendre / Recommencer » dans la fiche (#24).

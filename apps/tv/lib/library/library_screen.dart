@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../api/api.dart';
 import '../l10n/app_localizations.dart';
-import '../player/media_kit_engine.dart';
-import '../player/playback_engine.dart';
-import '../player/player_screen.dart';
-import '../player/subtitle_style.dart';
 import '../profile/profile_screen.dart';
 import '../settings/sources_screen.dart';
 import '../widgets/profile_menu.dart';
@@ -32,9 +28,10 @@ import 'search_view.dart';
 ///   recherche mélangent les types : chaque affiche porte l'icône du sien.
 ///
 /// Tout passe par GET /api/media (le serveur filtre déjà selon l'âge du
-/// profil). OK sur une affiche ouvre sa fiche ; « Lecture » y ouvre le
-/// lecteur (films, épisodes, morceaux), Retour revient sur la fiche.
-/// Ouvrir une série ou un album (saisons, pistes) n'est pas encore branché.
+/// profil). OK sur une affiche ouvre sa fiche ; « Lecture » y demande la
+/// lecture au cœur (`POST /api/player/play`), qui ouvre le lecteur par-dessus
+/// (voir `player/server_player.dart`) ; Retour revient sur la fiche.
+/// Parcourir une série ou un album (saisons, pistes) n'est pas encore branché.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
@@ -42,7 +39,6 @@ class LibraryScreen extends StatefulWidget {
     required this.profile,
     required this.onChangeProfile,
     required this.onBackToPairing,
-    this.engineFactory = MediaKitEngine.new,
   });
 
   final Api api;
@@ -55,10 +51,6 @@ class LibraryScreen extends StatefulWidget {
 
   /// Retour à l'écran d'appairage (depuis le menu du profil).
   final VoidCallback onBackToPairing;
-
-  /// Crée un moteur de lecture neuf à chaque ouverture du lecteur
-  /// (media_kit par défaut, faux moteur dans les tests).
-  final PlaybackEngine Function() engineFactory;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -172,23 +164,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool get _isGuest => _profile['kind'] == 'guest';
   final _guestLists = SessionLists();
 
-  // Apparence des sous-titres gardée d'une lecture à l'autre (session).
-  SubtitleStyle _subtitleStyle = const SubtitleStyle();
-
-  /// « Lecture » dans la fiche : ouvre le lecteur par-dessus la fiche, sur
-  /// le navigateur racine (celui de la fiche). Retour revient sur la fiche,
-  /// focus sur « Lecture ».
-  void _play(BuildContext context, Map<String, dynamic> item) {
-    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
-      builder: (_) => PlayerScreen(
-        engine: widget.engineFactory(),
-        source: widget.api.streamSource(item),
-        subtitleStyle: _subtitleStyle,
-        onSubtitleStyleChanged: (s) => _subtitleStyle = s,
-      ),
-    ));
-  }
-
   /// Les réglages du media center sont réservés aux comptes non restreints.
   bool get _canChangeSettings =>
       _profile['kind'] == 'account' && _profile['is_restricted'] != true;
@@ -201,7 +176,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       api: widget.api,
       item: item,
       guestLists: _isGuest ? _guestLists : null,
-      onPlay: _play,
+      onPlay: (media) => widget.api.play(media['id']),
     );
     if (changed && mounted && _section.list != null) {
       setState(() => _generation++);
