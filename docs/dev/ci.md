@@ -5,13 +5,12 @@
 1. Tu crées une branche depuis `dev` (`feature/...`, `fix/...`) et tu pushes.
 2. **`auto-pr.yml`** ouvre automatiquement une pull request vers `dev`
    (une seule par branche), avec le modèle `.github/pull_request_template.md`.
-   Les code owners (`.github/CODEOWNERS`) sont demandés en relecteurs,
-   sauf l'auteur du push.
+   Aucun relecteur n'est demandé automatiquement : ajoute-les sur la PR.
 3. **Une CI par partie du projet** tourne sur le même commit, et ses résultats
    s'affichent sur la PR. Chacune ne lance ses jobs **que si sa partie a
    changé** (voir le tableau ci-dessous) ; sinon ses jobs sont sautés.
 4. Chaque nouveau push sur la branche relance la CI. La PR existante se met à jour.
-5. Quand la CI est verte **et** qu'un code owner a approuvé, tu merges dans `dev`.
+5. Quand la CI est verte **et** qu'un membre de l'équipe a approuvé, tu merges dans `dev`.
    Le push sur `dev` relance la CI.
 6. **`release.yml`** : un tag `v*` construit les paquets (Linux, Windows, macOS,
    APK Android) et publie une release GitHub.
@@ -90,13 +89,9 @@ tournent, mais rien n'empêche de merger une PR rouge.
    Le dépôt appartient à l'organisation Epikodih : le même réglage doit aussi
    être autorisé dans les paramètres de l'organisation. Sinon `auto-pr` échoue
    avec « GitHub Actions is not permitted to create or approve pull requests ».
-2. **Settings → Collaborators and teams** : `malo-coet` et `loicosternaud`
-   doivent avoir l'accès *Write*. Sans ce droit, GitHub ignore la ligne
-   CODEOWNERS et ne les demande pas en relecteurs.
-3. **Settings → Branches → règle pour `dev`, puis la même pour `main`** :
+2. **Settings → Branches → règle pour `dev`, puis la même pour `main`** :
    - *Require a pull request before merging*
      - *Require approvals* : 1
-     - *Require review from Code Owners*
    - *Require status checks to pass before merging*, avec les checks
      `tv-lint`, `tv-tests (linux)`, `tv-tests (windows)`, `tv-tests (macos)`,
      `tv-build (linux)`, `tv-build (windows)`, `tv-build (macos)`,

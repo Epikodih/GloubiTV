@@ -374,6 +374,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playSoon => 'Playback is coming soon.';
 
   @override
+  String get playRequestError => 'Could not start playback.';
+
+  @override
   String get addFavorite => 'Add to favorites';
 
   @override
@@ -477,4 +480,103 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unavailable => 'unavailable';
+
+  @override
+  String get playerPlay => 'Play';
+
+  @override
+  String get playerPause => 'Pause';
+
+  @override
+  String get playerRewind => 'Rewind 10 seconds';
+
+  @override
+  String get playerForward => 'Forward 30 seconds';
+
+  @override
+  String get playerLoading => 'Loading…';
+
+  @override
+  String get playerPaused => 'Paused';
+
+  @override
+  String get playerEnded => 'Playback finished';
+
+  @override
+  String get playerPositionLabel => 'Playback position';
+
+  @override
+  String playerPosition(String position, String duration) {
+    return '$position of $duration';
+  }
+
+  @override
+  String playerError(String details) {
+    return 'Unable to play: $details';
+  }
+
+  @override
+  String get playerTracks => 'Audio and subtitles';
+
+  @override
+  String get playerAudio => 'Audio';
+
+  @override
+  String get playerSubtitles => 'Subtitles';
+
+  @override
+  String get playerSubtitlesOff => 'Off';
+
+  @override
+  String get playerAudioDescription => 'Audio description';
+
+  @override
+  String playerTrackNumber(int number) {
+    return 'Track $number';
+  }
+
+  @override
+  String get playerNoTrack => 'No track in this file';
+
+  @override
+  String get subtitleSize => 'Subtitle size';
+
+  @override
+  String get subtitleSizeSmall => 'Small';
+
+  @override
+  String get subtitleSizeNormal => 'Normal';
+
+  @override
+  String get subtitleSizeLarge => 'Large';
+
+  @override
+  String get subtitleSizeExtraLarge => 'Extra large';
+
+  @override
+  String get subtitleColor => 'Text colour';
+
+  @override
+  String get subtitleColorWhite => 'White';
+
+  @override
+  String get subtitleColorYellow => 'Yellow';
+
+  @override
+  String get subtitleColorCyan => 'Cyan';
+
+  @override
+  String get subtitleBackground => 'Background';
+
+  @override
+  String get subtitleBackgroundNone => 'None';
+
+  @override
+  String get subtitleBackgroundTranslucent => 'Semi-transparent';
+
+  @override
+  String get subtitleBackgroundOpaque => 'Black';
+
+  @override
+  String get subtitlePreview => 'Subtitle preview';
 }

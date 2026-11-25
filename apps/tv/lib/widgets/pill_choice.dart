@@ -19,6 +19,8 @@ class PillChoice extends StatelessWidget {
   final VoidCallback onTap;
   final String? semanticPrefix;
   final bool compact;
+
+  /// Prend le focus à l'ouverture de l'écran (ou du panneau).
   final bool autofocus;
 
   @override

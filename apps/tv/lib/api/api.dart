@@ -19,6 +19,7 @@ import 'package:epikodi_client/epikodi_client.dart';
 /// - PATCH /api/profiles/{id}   -> modifier un compte (PIN si restriction d'âge)
 /// - GET   /api/media           -> médias du compte actif (catégorie,
 ///                                  favoris, « À regarder », recherche)
+/// - POST  /api/player/play     -> lancer un média sur la TV
 class Api {
   const Api(this._client);
 
@@ -172,6 +173,18 @@ class Api {
     final list = json['scanning'] as List? ?? const [];
     return list.whereType<Map<String, dynamic>>().toList();
   }
+
+  // ---------------------------------------------------------------- lecture
+
+  /// Demande au cœur de lire [mediaId] sur la TV (toutes ses feuilles : une
+  /// série reprend au premier épisode non vu). [resume] reprend là où le
+  /// profil s'était arrêté.
+  ///
+  /// Le cœur répond avec l'état du lecteur, puis envoie à la TV l'événement
+  /// `player.command` (`load`) qui ouvre le lecteur : la TV ne choisit jamais
+  /// seule ce qu'elle lit. Rien à lire : [ApiException] `nothing_to_play`.
+  Future<void> play(Object mediaId, {bool resume = true}) => _client
+      .post('/api/player/play', body: {'media_id': mediaId, 'resume': resume});
 
   // ----------------------------------------------------------------- interne
 

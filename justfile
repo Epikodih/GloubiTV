@@ -14,6 +14,9 @@ tv device="windows":
 # Lance la télécommande sur le téléphone ou l'émulateur Android branché.
 remote:
     cd apps/remote && "{{flutter}}" run
+# Télécommande simulée (tester la lecture sans téléphone) : `just telecommande aide`.
+telecommande *args:
+    dart scripts/telecommande.dart {{args}}
 # Installe Flutter (version de .fvmrc, via fvm), vérifie Rust et les outils macOS.
 [unix]
 setup:

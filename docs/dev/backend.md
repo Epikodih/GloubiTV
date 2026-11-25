@@ -115,6 +115,9 @@ just tv linux        # ou windows / macos
 La TV se connecte à `localhost:7878` et affiche le code et le QR. Sur le
 téléphone, le port 7878 doit être joignable (même réseau Wi-Fi, pare-feu ouvert).
 
+Sans téléphone : `just telecommande appairer <code>`, puis les commandes de
+lecture. Pas à pas sur un Mac : [tester-la-lecture.md](tester-la-lecture.md).
+
 **Sous WSL2** : le téléphone ne voit pas l'IP interne de WSL. Soit activer le
 réseau « miroir » (`networkingMode=mirrored` dans `%UserProfile%\.wslconfig`,
 puis `wsl --shutdown`), soit rediriger le port depuis un PowerShell

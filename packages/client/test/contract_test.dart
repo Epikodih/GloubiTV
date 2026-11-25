@@ -58,6 +58,8 @@ void main() {
           ...[r.request, r.response].whereType<String>(),
         'routes.json',
         'errors/error.json', // modèle d'erreur commun
+        // événement WebSocket (GET /api/ws), pas une réponse de route
+        'events/player_command_load.json',
       };
       final unused = <String>[];
       for (final f in dir.listSync(recursive: true).whereType<File>()) {
@@ -80,6 +82,21 @@ void main() {
         final [method, path] = route.split(' ');
         expect(backend.routeFor(method, path), isNotNull, reason: route);
       }
+    });
+
+    test('la lecture pilotée par le cœur est décrite', () {
+      final play = backend.routeFor('POST', '/api/player/play')!;
+      expect(
+          play.errorCodes, containsAll(['media_not_found', 'nothing_to_play']));
+      final state = backend.routeFor('POST', '/api/player/state')!;
+      expect(state.errorCodes, contains('localhost_only'));
+      expect(backend.routeFor('GET', '/api/media/1/stream'), isNull,
+          reason: 'la TV lit le fichier donné par player.command');
+      final load =
+          readFixture('events/player_command_load.json', fixturesDir: dir)
+              as Map;
+      expect(load['type'], 'player.command');
+      expect((load['data'] as Map)['action'], 'load');
     });
 
     test('refresh peut répondre tv_session_not_found (repli sur connect)', () {

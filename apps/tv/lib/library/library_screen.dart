@@ -28,7 +28,10 @@ import 'search_view.dart';
 ///   recherche mélangent les types : chaque affiche porte l'icône du sien.
 ///
 /// Tout passe par GET /api/media (le serveur filtre déjà selon l'âge du
-/// profil). Ouvrir un média (saisons, lecture) n'est pas encore branché.
+/// profil). OK sur une affiche ouvre sa fiche ; « Lecture » y demande la
+/// lecture au cœur (`POST /api/player/play`), qui ouvre le lecteur par-dessus
+/// (voir `player/server_player.dart`) ; Retour revient sur la fiche.
+/// Parcourir une série ou un album (saisons, pistes) n'est pas encore branché.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
@@ -173,6 +176,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       api: widget.api,
       item: item,
       guestLists: _isGuest ? _guestLists : null,
+      onPlay: (media) => widget.api.play(media['id']),
     );
     if (changed && mounted && _section.list != null) {
       setState(() => _generation++);

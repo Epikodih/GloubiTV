@@ -21,6 +21,7 @@ Future<bool> showMediaDetails(
   required Api api,
   required Map<String, dynamic> item,
   SessionLists? guestLists,
+  MediaPlayCallback? onPlay,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final reduced = MediaQuery.disableAnimationsOf(context);
@@ -35,6 +36,7 @@ Future<bool> showMediaDetails(
       api: api,
       item: item,
       guestLists: guestLists,
+      onPlay: onPlay,
     ),
     transitionBuilder: (_, animation, __, child) {
       final curved =
@@ -51,6 +53,10 @@ Future<bool> showMediaDetails(
   return changed ?? false;
 }
 
+/// Demande la lecture de [media] au cœur, qui ouvre ensuite le lecteur.
+/// Lève [ApiException] si le cœur refuse (rien à lire, média masqué…).
+typedef MediaPlayCallback = Future<void> Function(Map<String, dynamic> media);
+
 /// Contenu de la fiche : affiche, titre, infos (année, type, durée,
 /// classification, genres), résumé, puis les actions : Lecture, Favoris,
 /// « À regarder ».
@@ -60,6 +66,7 @@ class MediaDetailsDialog extends StatefulWidget {
     required this.api,
     required this.item,
     this.guestLists,
+    this.onPlay,
   });
 
   final Api api;
@@ -67,6 +74,10 @@ class MediaDetailsDialog extends StatefulWidget {
 
   /// Invité : listes de la session, gardées par la TV.
   final SessionLists? guestLists;
+
+  /// Demande la lecture au cœur. Absent : « Lecture » affiche seulement que
+  /// la lecture arrive bientôt.
+  final MediaPlayCallback? onPlay;
 
   @override
   State<MediaDetailsDialog> createState() => _MediaDetailsDialogState();
@@ -159,9 +170,30 @@ class _MediaDetailsDialogState extends State<MediaDetailsDialog> {
     }
   }
 
-  void _play() {
-    // À brancher : lecture (et reprise) du média.
-    setState(() => _message = AppLocalizations.of(context)!.playSoon);
+  /// « Lecture » : le cœur lit le média (une série reprend au premier
+  /// épisode non vu, un album à sa première piste) et ouvre le lecteur
+  /// par-dessus la fiche. Un refus s'affiche dans la fiche.
+  Future<void> _play() async {
+    final onPlay = widget.onPlay;
+    if (onPlay == null) {
+      setState(() => _message = AppLocalizations.of(context)!.playSoon);
+      return;
+    }
+    if (_busy || _media['status'] == 'missing') return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await onPlay(_media);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _message = e is ApiException
+          ? e.message
+          : AppLocalizations.of(context)!.playRequestError);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   void _close() => Navigator.of(context).pop(_changed);
