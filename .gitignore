@@ -1,4 +1,6 @@
 target/
+# SDK Flutter installé par fvm (version fixée dans .fvmrc)
+.fvm/
 .dart_tool/
 build/
 .env

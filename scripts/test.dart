@@ -48,9 +48,18 @@ Future<void> rust(String root) async {
   await run('cargo', ['test', '--workspace'], root);
 }
 
+/// Flutter de la version fixée dans .fvmrc (installé par fvm dans .fvm/),
+/// sinon celui du PATH (la CI installe déjà la bonne version).
+String flutterExe(String root) {
+  final sdk = '$root/.fvm/flutter_sdk/bin/flutter';
+  final exists = File(Platform.isWindows ? '$sdk.bat' : sdk).existsSync();
+  return exists ? sdk : 'flutter';
+}
+
 Future<void> flutter(String root, List<String> packages) async {
-  stdout.writeln('==> Flutter : dépendances du workspace');
-  await run('flutter', ['pub', 'get'], root);
+  final exe = flutterExe(root);
+  stdout.writeln('==> Flutter : dépendances du workspace ($exe)');
+  await run(exe, ['pub', 'get'], root);
 
   for (final package in packages) {
     final dir = '$root/$package';
@@ -60,7 +69,7 @@ Future<void> flutter(String root, List<String> packages) async {
       continue;
     }
     stdout.writeln('==> $package : flutter test');
-    await run('flutter', ['test'], dir);
+    await run(exe, ['test'], dir);
   }
 }
 
@@ -82,7 +91,8 @@ Future<void> run(String exe, List<String> args, String dir) async {
   );
   final code = await process.exitCode;
   if (code != 0) {
-    stderr.writeln('==> Échec : $exe ${args.join(' ')} (dans $dir), code $code');
+    stderr
+        .writeln('==> Échec : $exe ${args.join(' ')} (dans $dir), code $code');
     exit(code);
   }
 }

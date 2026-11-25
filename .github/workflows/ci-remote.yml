@@ -36,6 +36,7 @@ jobs:
               - 'pubspec.lock'
               - 'analysis_options.yaml'
               - 'scripts/test.dart'
+              - '.fvmrc'
               - '.github/workflows/ci-remote.yml'
 
   remote-lint:
@@ -45,6 +46,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Version de Flutter identique à .fvmrc (local)
+        run: |
+          grep -Eq "\"flutter\": *\"$FLUTTER_VERSION\"" .fvmrc || {
+            echo "::error file=.fvmrc::.fvmrc doit fixer Flutter $FLUTTER_VERSION, comme les workflows"
+            exit 1
+          }
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
