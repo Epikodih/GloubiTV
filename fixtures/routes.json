@@ -335,6 +335,58 @@
       ]
     },
     {
+      "method": "POST",
+      "path": "/api/player/play",
+      "auth": "bearer + profil choisi",
+      "status": 200,
+      "request": "player/play_request.json",
+      "response": "player/state.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 403,
+          "code": "profile_required"
+        },
+        {
+          "status": 403,
+          "code": "guest_forbidden"
+        },
+        {
+          "status": 404,
+          "code": "media_not_found"
+        },
+        {
+          "status": 409,
+          "code": "nothing_to_play"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/player/state",
+      "auth": "local (app TV)",
+      "status": 200,
+      "request": "player/state_request.json",
+      "response": "player/state.json",
+      "errors": [
+        {
+          "status": 403,
+          "code": "localhost_only"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
       "method": "GET",
       "path": "/api/queue",
       "auth": "bearer + profil choisi",

@@ -1,0 +1,25 @@
+{
+  "status": "playing",
+  "position_s": 312.5,
+  "duration_s": 888.0,
+  "audio_tracks": [
+    {
+      "id": 1,
+      "lang": "en",
+      "title": "English",
+      "codec": "aac",
+      "audio_description": false
+    }
+  ],
+  "subtitle_tracks": [
+    {
+      "id": 1,
+      "lang": "fr",
+      "title": "Français",
+      "codec": "srt",
+      "audio_description": false
+    }
+  ],
+  "audio_track": 1,
+  "subtitle_track": null
+}

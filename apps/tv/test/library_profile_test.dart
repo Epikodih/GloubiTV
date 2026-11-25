@@ -26,6 +26,15 @@ void main() {
           'http://tv.test:7878');
     });
 
+    test('play : POST /api/player/play avec media_id et resume', () async {
+      await api.play(2);
+      expect(backend.last('POST', '/api/player/play')?.body,
+          {'media_id': 2, 'resume': true});
+      await api.play(6, resume: false);
+      expect(backend.last('POST', '/api/player/play')?.body,
+          {'media_id': 6, 'resume': false});
+    });
+
     test('fetchMedia lit la clé items de media/list.json', () async {
       final items = await api.fetchMedia();
       expect(items,

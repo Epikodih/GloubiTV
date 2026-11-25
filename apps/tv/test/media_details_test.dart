@@ -186,9 +186,20 @@ void main() {
       expect(inDialog(find.text('Pas de favoris.')), findsOneWidget);
     });
 
-    testWidgets('Lecture : pas encore branchée, message', (tester) async {
-      await pumpLibrary(tester);
-      await openSintel(tester);
+    testWidgets('Lecture sans lecteur branché : message', (tester) async {
+      await pumpTv(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showMediaDetails(context,
+                api: Api(fixtureClient(backend).http), item: detailFixture),
+            child: const Text('ouvrir'),
+          ),
+        ),
+      );
+      await tester.tap(find.text('ouvrir'));
+      await settle(tester);
+      await tester.pumpAndSettle();
       await tester.tap(action('play'));
       await tester.pump();
       expect(inDialog(find.text(fr.playSoon)), findsOneWidget);

@@ -7,6 +7,7 @@ import 'config.dart';
 import 'l10n/app_localizations.dart';
 import 'locale.dart';
 import 'pairing/pairing_screen.dart';
+import 'player/server_player.dart';
 import 'remote/remote_keys.dart';
 import 'window.dart';
 
@@ -82,7 +83,12 @@ class _GloubiTvAppState extends State<GloubiTvApp> {
             child: RemoteKeyListener(
               baseUrl: serverUrl,
               navigator: _navigator,
-              child: child ?? const SizedBox.shrink(),
+              // Le cœur ouvre et pilote le lecteur (player.command).
+              child: PlaybackHost(
+                navigator: _navigator,
+                linkFactory: () => ServerPlayerLink(baseUrl: serverUrl),
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
           home: const PairingScreen(),

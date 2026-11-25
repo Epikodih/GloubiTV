@@ -9,6 +9,9 @@ tv device="windows":
 # Lance la télécommande sur le téléphone ou l'émulateur Android branché.
 remote:
     cd apps/remote && flutter run
+# Télécommande simulée (tester la lecture sans téléphone) : `just telecommande aide`.
+telecommande *args:
+    dart scripts/telecommande.dart {{args}}
 setup:
     ./scripts/setup-dev.sh
 lint:

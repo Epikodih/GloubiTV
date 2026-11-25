@@ -39,6 +39,8 @@ Chaque fichier fixe la **forme** d'une requête ou d'une réponse (champs et typ
 | `POST /api/sources/scan` (202) | Bearer + compte non restreint | `sources/scan_request.json` (facultatif) | `sources/scan_response.json` |
 | `GET /api/player` | Bearer | | `player/state.json` |
 | `POST /api/player/command` | Bearer | `player/command_request.json` | `player/state.json` |
+| `POST /api/player/play` | Bearer + profil choisi | `player/play_request.json` | `player/state.json` |
+| `POST /api/player/state` | local (app TV) | `player/state_request.json` | `player/state.json` |
 | `GET /api/queue` | Bearer + profil choisi | | `queue/list.json` |
 | `POST /api/queue` | Bearer + profil choisi | `queue/add_request.json` | `queue/list.json` |
 
@@ -97,6 +99,11 @@ décrites dans `docs/dev/protocol.md`.
   - avec `{"uris": [...]}` : seulement ces dossiers (les `uri` de `sources/list`), par exemple le bouton « Rescanner » d'un dossier.
   Réponse `202` : `scanning` liste les dossiers dont le scan démarre ; il tourne en arrière-plan (`last_scan_at` et `media_count` se mettent à jour ensuite). Une URI qui n'est pas un dossier ajouté : `validation_failed` (`details.fields.uris`), rien n'est lancé.
 
+**Lecture pilotée par le cœur** : la TV ne choisit jamais seule ce qu'elle lit.
+- `POST /api/player/play` lance un média (toutes ses feuilles : une série reprend au premier épisode non vu), un élément de la file ou une liste de lecture. Un seul de `media_id`, `queue_item_id`, `playlist_id` ; `resume` (vrai par défaut) reprend là où le profil s'était arrêté. Rien à lire : `nothing_to_play`.
+- Le cœur envoie alors à la TV l'événement WebSocket `player.command` (`events/player_command_load.json`) : `action: "load"`, `now_playing.uri` (chemin du fichier sur la machine du cœur, ou URL d'un lien envoyé vers la télé) et `start_s` (position de reprise). Les autres actions (`play`, `pause`, `toggle`, `stop`, `seek`, `seek_relative`, `volume`, `audio_track`, `subtitle_track`, `subtitle_delay`) pilotent le lecteur ouvert.
+- La TV publie l'état réel avec `POST /api/player/state` (route locale) : à chaque changement de statut ou de piste, et toutes les 5 s pendant la lecture. `status: "ended"` fait enchaîner le média suivant ; le cœur enregistre la reprise.
+
 ## Codes d'erreur
 
 | Code | HTTP | Quand |
@@ -119,6 +126,7 @@ décrites dans `docs/dev/protocol.md`.
 | `source_not_found` | 404 | Dossier de scan inconnu |
 | `source_exists` | 409 | Dossier déjà ajouté |
 | `invalid_query` | 422 | Paramètre invalide (`details.fields`) |
+| `nothing_to_play` | 409 | Rien à lire (série sans épisode, file vide) |
 | `localhost_only` | 403 | Route réservée à l'app TV (accès local) |
 | `admin_required` | 403 | Action réservée à un compte non restreint |
 
