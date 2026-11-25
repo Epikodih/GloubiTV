@@ -4,6 +4,7 @@
 
 - Rust stable (`rustup`, voir `rust-toolchain.toml`) et un compilateur C (SQLite est embarqué).
 - Facultatif : `just`, `curl`, `python3` (pour lire le JSON dans les exemples).
+- Pour l'app TV et la télécommande : `just setup` installe Flutter à la version de la CI (voir [ci.md](ci.md#version-de-flutter--la-même-en-local-et-en-ci)).
 
 ## Lancer le serveur
 

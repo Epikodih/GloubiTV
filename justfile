@@ -1,21 +1,31 @@
 # Sous Windows, just n'a pas de `sh` : on passe par cmd (gère `cd x && y`).
 set windows-shell := ["cmd.exe", "/c"]
 
+# Flutter de la version fixée dans .fvmrc (installé par `just setup`), sinon
+# celui du PATH. Même version que la CI : pas de fichiers régénérés en local.
+fvm_flutter := justfile_directory() / ".fvm" / "flutter_sdk" / "bin" / "flutter"
+flutter := if path_exists(fvm_flutter) == "true" { fvm_flutter } else { "flutter" }
+
 core:
     cargo run -p epikodi-core
 # Lance l'app TV. Windows par défaut ; sinon : `just tv macos` ou `just tv linux`.
 tv device="windows":
-    cd apps/tv && flutter run -d {{device}}
+    cd apps/tv && "{{flutter}}" run -d {{device}}
 # Lance la télécommande sur le téléphone ou l'émulateur Android branché.
 remote:
-    cd apps/remote && flutter run
+    cd apps/remote && "{{flutter}}" run
 # Télécommande simulée (tester la lecture sans téléphone) : `just telecommande aide`.
 telecommande *args:
     dart scripts/telecommande.dart {{args}}
+# Installe Flutter (version de .fvmrc, via fvm), vérifie Rust et les outils macOS.
+[unix]
 setup:
     ./scripts/setup-dev.sh
+[windows]
+setup:
+    powershell -ExecutionPolicy Bypass -File scripts/setup-dev.ps1
 lint:
-    cargo fmt --check && cargo clippy --workspace -- -D warnings && flutter analyze packages/client packages/design_system apps/tv apps/remote
+    cargo fmt --check && cargo clippy --workspace -- -D warnings && "{{flutter}}" analyze packages/client packages/design_system apps/tv apps/remote
 
 # Marche sous Windows, macOS et Linux (script Dart, pas de bash requis).
 # Tous les tests (Rust + Flutter), en une commande, sans connexion réseau.

@@ -35,6 +35,28 @@
 - Lancer une CI en entier à la main : onglet *Actions* → le workflow →
   *Run workflow*.
 
+## Version de Flutter : la même en local et en CI
+
+La CI installe Flutter **3.44.6** (`FLUTTER_VERSION` dans `ci-tv.yml`,
+`ci-remote.yml` et `release.yml`). En local, la même version est fixée dans
+`.fvmrc` et installée par [fvm](https://fvm.app) dans `.fvm/` (ignoré par git) :
+
+```bash
+just setup
+```
+
+Ensuite `just tv`, `just remote`, `just lint` et `just test*` utilisent ce
+Flutter-là (`.fvm/flutter_sdk`), sans toucher au Flutter installé sur la
+machine. Avec une autre version, Flutter régénère `pubspec.lock`, les fichiers
+de plugins et les projets natifs : ces changements ne doivent pas être commités.
+
+- Dans un éditeur : choisir le SDK `.fvm/flutter_sdk` (VS Code et Android
+  Studio le proposent quand `.fvmrc` est présent).
+- Une commande hors `just` : `fvm flutter …` au lieu de `flutter …`.
+- **Changer de version** : modifier `.fvmrc` **et** `FLUTTER_VERSION` dans les
+  trois workflows, puis `just setup`. Les jobs `tv-lint` et `remote-lint`
+  échouent si `.fvmrc` et les workflows ne sont pas d'accord.
+
 ## Lancer les tests en local
 
 Même commande que la CI, sans connexion réseau. Marche sous Windows
