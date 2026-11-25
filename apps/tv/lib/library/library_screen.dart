@@ -1,8 +1,6 @@
 import 'package:design_system/design_system.dart';
 import 'package:flutter/material.dart';
 
-import 'package:epikodi_client/epikodi_client.dart' show ApiException;
-
 import '../api/api.dart';
 import '../l10n/app_localizations.dart';
 import '../player/media_kit_engine.dart';
@@ -10,18 +8,33 @@ import '../player/playback_engine.dart';
 import '../player/player_screen.dart';
 import '../player/subtitle_style.dart';
 import '../profile/profile_screen.dart';
+import '../settings/sources_screen.dart';
 import '../widgets/profile_menu.dart';
+import 'library_section.dart';
+import 'library_sidebar.dart';
+import 'media_details.dart';
+import 'media_views.dart';
+import 'session_lists.dart';
+import 'search_filters.dart';
+import 'search_view.dart';
 
-/// Médiathèque (version simple) : appelle GET /api/media et affiche les
-/// médias du profil actif en rangées d'affiches (films, séries, musique,
-/// podcasts). Le serveur filtre déjà selon l'âge du profil.
-/// Entrée sur un film (ou toute « feuille » lisible) ouvre le lecteur ; Retour
-/// revient sur la même carte. Ouvrir une série ou un album n'est pas encore
-/// branché.
+/// Médiathèque, après le choix du profil.
 ///
-/// En haut à gauche : le logo. En haut à droite : l'icône du profil, qui
-/// ouvre un menu déroulant (« Profil », « Changer de profil » ou retour à
-/// l'appairage).
+/// - En haut : le logo, la barre de recherche, et à droite l'icône du
+///   profil, qui ouvre un menu déroulant (« Profil », « Changer de profil »
+///   ou retour à l'appairage). Le focus dans la barre de recherche affiche
+///   les résultats et les filtres en dessous.
+/// - À gauche : le menu (accueil, « À regarder », favoris, puis films,
+///   séries, musique, podcasts), réduit aux icônes ; il se déplie quand le
+///   focus y entre. OK sur une entrée l'affiche à droite.
+/// - À droite : l'entrée choisie. L'accueil range les médias en rangées par
+///   type ; les autres entrées sont des grilles. Favoris, « À regarder » et
+///   recherche mélangent les types : chaque affiche porte l'icône du sien.
+///
+/// Tout passe par GET /api/media (le serveur filtre déjà selon l'âge du
+/// profil). OK sur une affiche ouvre sa fiche ; « Lecture » y ouvre le
+/// lecteur (films, épisodes, morceaux), Retour revient sur la fiche.
+/// Ouvrir une série ou un album (saisons, pistes) n'est pas encore branché.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
@@ -52,39 +65,80 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  /// Ordre et titres des rangées, selon le champ `kind` du média.
-  Map<String, String> _sections(AppLocalizations l10n) => {
-        'movie': l10n.sectionMovies,
-        'series': l10n.sectionSeries,
-        'artist': l10n.sectionMusic,
-        'podcast': l10n.sectionPodcasts,
-      };
+  LibrarySection _section = LibrarySection.home;
 
-  late Future<List<Map<String, dynamic>>> _future = widget.api.fetchMedia();
+  /// Change à chaque modification du profil : les listes se rechargent
+  /// (l'âge ou la restriction ont pu changer, le serveur re-filtre).
+  int _generation = 0;
+
+  /// Le focus est dans le menu de gauche : il est déplié.
+  bool _menuOpen = false;
+
+  final _searchText = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'search-field');
+
+  /// Barre de recherche + bouton des filtres : le menu s'aligne dessous.
+  final _searchArea = GlobalKey();
+  SearchFilters _filters = SearchFilters.none;
+
+  /// Genres proposés dans les filtres : ceux du catalogue du profil,
+  /// chargés à la première ouverture du menu des filtres.
+  Future<List<String>>? _genres;
 
   // Copie locale du profil : mise à jour après une modification.
   late Map<String, dynamic> _profile = widget.profile;
 
-  // Apparence des sous-titres gardée d'une lecture à l'autre (session).
-  SubtitleStyle _subtitleStyle = const SubtitleStyle();
-
-  /// Ouvre le lecteur sur [item]. Au retour, le focus revient sur sa carte.
-  void _play(Map<String, dynamic> item) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => PlayerScreen(
-        engine: widget.engineFactory(),
-        source: widget.api.streamSource(item),
-        subtitleStyle: _subtitleStyle,
-        onSubtitleStyleChanged: (s) => _subtitleStyle = s,
-      ),
-    ));
+  @override
+  void initState() {
+    super.initState();
+    _searchFocus.addListener(_searchFocused);
   }
 
-  // Accolades obligatoires : `setState(() => _future = ...)` renverrait un
-  // Future, ce que setState refuse (assertion en debug, bouton sans effet).
-  void _reload() => setState(() {
-        _future = widget.api.fetchMedia();
-      });
+  Future<List<String>> _loadGenres() => _genres ??= () async {
+        try {
+          final items = await widget.api.fetchMedia();
+          final set = <String>{
+            for (final m in items)
+              for (final g in (m['genres'] as List? ?? const [])) '$g',
+          };
+          return set.toList()
+            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        } catch (_) {
+          _genres = null; // on réessaiera à la prochaine ouverture
+          return const <String>[]; // pas de filtre de genre
+        }
+      }();
+
+  /// Un filtre choisi affiche les résultats de la recherche.
+  void _filtersChanged(SearchFilters f) {
+    setState(() {
+      _filters = f;
+      _section = LibrarySection.search;
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchFocus.dispose();
+    _searchText.dispose();
+    super.dispose();
+  }
+
+  /// Aller dans la barre de recherche affiche la recherche en dessous.
+  void _searchFocused() {
+    if (_searchFocus.hasFocus && _section != LibrarySection.search) {
+      setState(() => _section = LibrarySection.search);
+    }
+  }
+
+  void _select(LibrarySection section) {
+    if (section == _section) return;
+    setState(() {
+      _section = section;
+      _searchText.clear();
+      _filters = SearchFilters.none;
+    });
+  }
 
   Future<void> _openProfile() async {
     final updated = await Navigator.of(context).push<Map<String, dynamic>>(
@@ -95,15 +149,119 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (updated == null || !mounted) return;
     setState(() {
       _profile = {..._profile, ...updated};
-      // L'âge ou la restriction ont pu changer : le serveur re-filtre les médias.
-      _future = widget.api.fetchMedia();
+      _generation++;
     });
+  }
+
+  /// « Paramètres » : dossiers scannés par le media center. Au retour, si
+  /// les dossiers ont changé, la médiathèque se recharge.
+  Future<void> _openSettings() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => SourcesScreen(api: widget.api)),
+    );
+    if (changed == true && mounted) {
+      setState(() {
+        _generation++;
+        _genres = null;
+      });
+    }
+  }
+
+  /// Invité : ses favoris et « À regarder » ne vivent que le temps de la
+  /// session, dans la TV (le serveur ne les garde pas).
+  bool get _isGuest => _profile['kind'] == 'guest';
+  final _guestLists = SessionLists();
+
+  // Apparence des sous-titres gardée d'une lecture à l'autre (session).
+  SubtitleStyle _subtitleStyle = const SubtitleStyle();
+
+  /// « Lecture » dans la fiche : ouvre le lecteur par-dessus la fiche, sur
+  /// le navigateur racine (celui de la fiche). Retour revient sur la fiche,
+  /// focus sur « Lecture ».
+  void _play(BuildContext context, Map<String, dynamic> item) {
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
+      builder: (_) => PlayerScreen(
+        engine: widget.engineFactory(),
+        source: widget.api.streamSource(item),
+        subtitleStyle: _subtitleStyle,
+        onSubtitleStyleChanged: (s) => _subtitleStyle = s,
+      ),
+    ));
+  }
+
+  /// Les réglages du media center sont réservés aux comptes non restreints.
+  bool get _canChangeSettings =>
+      _profile['kind'] == 'account' && _profile['is_restricted'] != true;
+
+  /// OK sur une affiche : fiche du média. Si les favoris ou « À regarder »
+  /// ont changé, la liste affichée est rechargée.
+  Future<void> _openMedia(Map<String, dynamic> item) async {
+    final changed = await showMediaDetails(
+      context,
+      api: widget.api,
+      item: item,
+      guestLists: _isGuest ? _guestLists : null,
+      onPlay: _play,
+    );
+    if (changed && mounted && _section.list != null) {
+      setState(() => _generation++);
+    }
+  }
+
+  Widget _content(AppLocalizations l10n) {
+    final api = widget.api;
+    final section = _section;
+    final key = ValueKey((section, _generation));
+    if (section == LibrarySection.search) {
+      return SearchView(
+          key: key,
+          api: api,
+          controller: _searchText,
+          filters: _filters,
+          onOpen: _openMedia);
+    }
+    final home = section == LibrarySection.home;
+    return MediaLoader(
+      key: key,
+      request: key,
+      load: () => _isGuest && section.list != null
+          ? Future.value(_guestLists
+              .items(section.list == 'favorites' ? 'favorite' : 'watchlist'))
+          : api.fetchMedia(kind: section.kind, list: section.list),
+      emptyIcon: home ? Icons.video_library_outlined : section.icon,
+      emptyText: section.emptyText(l10n),
+      builder: (context, items) => home
+          // À l'arrivée, le focus est sur la première affiche.
+          ? MediaRows(
+              items: items,
+              baseUrl: api.baseUrl,
+              autofocusFirst: true,
+              onOpen: _openMedia,
+            )
+          : MediaGrid(
+              items: items,
+              baseUrl: api.baseUrl,
+              showKind: section.mixesKinds,
+              onOpen: _openMedia,
+            ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final name = '${_profile['name'] ?? l10n.guestName}';
+    final scaler = MediaQuery.textScalerOf(context);
+    final collapsed = LibrarySidebar.collapsedWidth(context);
+    // Menu déplié : la liste glisse vers la droite pour rester visible
+    // (et atteignable avec la flèche droite).
+    final shift =
+        _menuOpen ? LibrarySidebar.expandedWidth(context) - collapsed : 0.0;
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    final searchHeight = scaler.scale(62);
+    // Petit écran (ou grand texte) : logo plus petit, bouton des filtres
+    // réduit à son icône, pour laisser la place à la barre de recherche.
+    final narrow = MediaQuery.sizeOf(context).width < scaler.scale(1400);
 
     return Scaffold(
       body: BrandBackground(
@@ -117,282 +275,96 @@ class _LibraryScreenState extends State<LibraryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const GloubiLogo(size: 56),
+                    GloubiLogo(size: narrow ? 40 : 56),
+                    SizedBox(width: narrow ? AppSpacing.sm : AppSpacing.lg),
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(maxWidth: scaler.scale(960)),
+                          child: Row(
+                            key: _searchArea,
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: searchHeight,
+                                  child: SearchField(
+                                    controller: _searchText,
+                                    focusNode: _searchFocus,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              SearchFilterButton(
+                                filters: _filters,
+                                loadGenres: _loadGenres,
+                                onChanged: _filtersChanged,
+                                height: searchHeight,
+                                alignTo: _searchArea,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: narrow ? AppSpacing.sm : AppSpacing.lg),
                     ProfileMenuButton(
                       name: name,
                       onProfile: _openProfile,
                       onSwitchProfile: widget.onChangeProfile,
                       onPairing: widget.onBackToPairing,
+                      onSettings: _canChangeSettings ? _openSettings : null,
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
-                  child: FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _future,
-                    builder: (context, snap) {
-                      if (snap.connectionState != ConnectionState.done) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snap.hasError) {
-                        final message = snap.error is ApiException
-                            ? (snap.error as ApiException).message
-                            : l10n.libraryLoadError;
-                        return _Message(
-                          worried: true,
-                          text: message,
-                          actionText: l10n.retry,
-                          onAction: _reload,
-                        );
-                      }
-                      final items = snap.data ?? const [];
-                      final rows = <Widget>[];
-                      var first = true;
-                      for (final entry in _sections(l10n).entries) {
-                        final list =
-                            items.where((m) => m['kind'] == entry.key).toList();
-                        if (list.isEmpty) continue;
-                        rows.add(_MediaRow(
-                          title: entry.value,
-                          items: list,
-                          baseUrl: widget.api.baseUrl,
-                          autofocusFirst: first,
-                          onPlay: _play,
-                        ));
-                        first = false;
-                      }
-                      if (rows.isEmpty) {
-                        return _Message(
-                          icon: Icons.video_library_outlined,
-                          text: l10n.noMediaForProfile,
-                        );
-                      }
-                      return SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: rows,
+                  child: LayoutBuilder(
+                    builder: (context, box) => Stack(
+                      children: [
+                        Positioned.fill(
+                          left: collapsed + AppSpacing.md,
+                          child: ClipRect(
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(end: shift),
+                              duration: reduce
+                                  ? Duration.zero
+                                  : LibrarySidebar.openDuration,
+                              curve: LibrarySidebar.openCurve,
+                              builder: (context, dx, child) =>
+                                  Transform.translate(
+                                      offset: Offset(dx, 0), child: child),
+                              child: _content(l10n),
+                            ),
+                          ),
                         ),
-                      );
-                    },
+                        // Hauteur du menu = ses entrées (défile si l'écran
+                        // est trop petit).
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(maxHeight: box.maxHeight),
+                            child: LibrarySidebar(
+                              selected: _section,
+                              onSelect: _select,
+                              onOpenChanged: (open) =>
+                                  setState(() => _menuOpen = open),
+                              onSettings:
+                                  _canChangeSettings ? _openSettings : null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Une rangée d'affiches qui défile horizontalement.
-class _MediaRow extends StatelessWidget {
-  const _MediaRow({
-    required this.title,
-    required this.items,
-    required this.baseUrl,
-    required this.autofocusFirst,
-    required this.onPlay,
-  });
-
-  final String title;
-  final List<Map<String, dynamic>> items;
-  final String baseUrl;
-  final bool autofocusFirst;
-  final ValueChanged<Map<String, dynamic>> onPlay;
-
-  @override
-  Widget build(BuildContext context) {
-    final scaler = MediaQuery.textScalerOf(context);
-    final cardWidth = scaler.scale(160);
-    final posterHeight = cardWidth * 1.5;
-    final labelHeight = scaler
-        .scale((AppText.body.fontSize ?? 20) * (AppText.body.height ?? 1.4));
-    // Affiche + marges de la carte + libellé + marge pour le halo de focus.
-    final rowHeight = posterHeight +
-        2 * AppSpacing.sm +
-        AppSpacing.sm +
-        labelHeight +
-        2 * AppSpacing.md;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: AppText.title),
-        SizedBox(
-          height: rowHeight,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
-            itemBuilder: (_, i) => _MediaCard(
-              item: items[i],
-              baseUrl: baseUrl,
-              width: cardWidth,
-              autofocus: autofocusFirst && i == 0,
-              onPlay: onPlay,
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-      ],
-    );
-  }
-}
-
-class _MediaCard extends StatelessWidget {
-  const _MediaCard({
-    required this.item,
-    required this.baseUrl,
-    required this.width,
-    required this.autofocus,
-    required this.onPlay,
-  });
-
-  final Map<String, dynamic> item;
-  final String baseUrl;
-  final double width;
-  final bool autofocus;
-  final ValueChanged<Map<String, dynamic>> onPlay;
-
-  /// Types qui ont un fichier à lire (les autres sont des conteneurs).
-  static const playableKinds = {'movie', 'episode', 'track', 'podcast_episode'};
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final title = '${item['title']}';
-    final posterUrl = item['poster_url'] as String?;
-    // Fichier disparu (NAS débranché…) : la carte reste, mais ne se lit pas.
-    final missing = item['status'] == 'missing';
-    final playable = !missing && playableKinds.contains(item['kind']);
-    final placeholder = Container(
-      width: width,
-      height: width * 1.5,
-      color: AppColors.surfaceHigh,
-      alignment: Alignment.center,
-      child: Icon(Icons.movie_outlined,
-          size: width * 0.4, color: AppColors.textMuted),
-    );
-
-    return FocusableCard(
-      autofocus: autofocus,
-      onTap: () {
-        if (playable) onPlay(item);
-        // À brancher : ouvrir la fiche ou les saisons (parent_id).
-      },
-      borderRadius: AppRadius.lg,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      semanticLabel: missing ? '$title, ${l10n.mediaUnavailable}' : title,
-      // Si la place manque, la carte se réduit au lieu de déborder.
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.lg / 2),
-              child: posterUrl == null
-                  ? placeholder
-                  : Image.network(
-                      '$baseUrl$posterUrl',
-                      width: width,
-                      height: width * 1.5,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => placeholder,
-                    ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            SizedBox(
-              width: width,
-              child: Text(
-                title,
-                style: AppText.body,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Indisponible : écrit en toutes lettres, pas seulement grisé.
-            if (missing)
-              SizedBox(
-                width: width,
-                child: Row(
-                  children: [
-                    const Icon(Icons.link_off, color: AppColors.textMuted),
-                    const SizedBox(width: AppSpacing.xs),
-                    Flexible(
-                      child: Text(
-                        l10n.mediaUnavailable,
-                        style: AppText.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Message centré (chargement impossible, médiathèque vide), avec un bouton
-/// optionnel.
-class _Message extends StatelessWidget {
-  const _Message({
-    this.icon,
-    this.worried = false,
-    required this.text,
-    this.actionText,
-    this.onAction,
-  });
-
-  /// Icône au-dessus du texte (si [worried] est faux).
-  final IconData? icon;
-
-  /// Erreur : Gloubi inquiet à la place de l'icône.
-  final bool worried;
-  final String text;
-  final String? actionText;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final scaler = MediaQuery.textScalerOf(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (worried)
-            Gloubi(
-              animation: GloubiAnimation.worried,
-              size: scaler.scale(160),
-            )
-          else if (icon != null)
-            Icon(icon, size: scaler.scale(56), color: AppColors.textMuted),
-          const SizedBox(height: AppSpacing.sm),
-          Text(text, style: AppText.title, textAlign: TextAlign.center),
-          if (actionText != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            FocusableCard(
-              autofocus: true,
-              borderRadius: 999,
-              onTap: onAction ?? () {},
-              semanticLabel: actionText!,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              child: Text(actionText!,
-                  style: AppText.body.copyWith(fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ],
       ),
     );
   }

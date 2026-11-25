@@ -6,11 +6,13 @@ import '../l10n/app_localizations.dart';
 import 'pill_metrics.dart';
 import 'profile_avatar.dart';
 
-enum _ProfileMenuAction { profile, switchProfile, pairing }
+enum _ProfileMenuAction { profile, settings, switchProfile, pairing }
 
 /// Bouton du profil actif (avatar + nom + flèche). Un clic ouvre un panneau
 /// aligné sur le bord droit du bouton :
 ///  - « Profil »             -> [onProfile]
+///  - « Paramètres »         -> [onSettings] (absent si null : invité ou
+///                              compte restreint)
 ///  - « Changer de profil »  -> [onSwitchProfile]
 ///  - « Appairage »          -> [onPairing]
 /// Le menu est fermé avant l'appel du callback.
@@ -21,6 +23,7 @@ class ProfileMenuButton extends StatefulWidget {
     required this.onProfile,
     required this.onSwitchProfile,
     required this.onPairing,
+    this.onSettings,
     this.autofocus = false,
   });
 
@@ -28,6 +31,7 @@ class ProfileMenuButton extends StatefulWidget {
   final VoidCallback onProfile;
   final VoidCallback onSwitchProfile;
   final VoidCallback onPairing;
+  final VoidCallback? onSettings;
   final bool autofocus;
 
   @override
@@ -57,7 +61,8 @@ class _ProfileMenuButtonState extends State<ProfileMenuButton> {
       barrierColor: Colors.black45,
       transitionDuration:
           reduced ? Duration.zero : const Duration(milliseconds: 140),
-      pageBuilder: (_, __, ___) => _MenuPanel(anchor: anchor, name: name),
+      pageBuilder: (_, __, ___) => _MenuPanel(
+          anchor: anchor, name: name, settings: widget.onSettings != null),
       transitionBuilder: (_, animation, __, child) => FadeTransition(
         opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
         child: child,
@@ -67,6 +72,8 @@ class _ProfileMenuButtonState extends State<ProfileMenuButton> {
     switch (action) {
       case _ProfileMenuAction.profile:
         widget.onProfile();
+      case _ProfileMenuAction.settings:
+        widget.onSettings?.call();
       case _ProfileMenuAction.switchProfile:
         widget.onSwitchProfile();
       case _ProfileMenuAction.pairing:
@@ -125,10 +132,17 @@ class _ProfileMenuButtonState extends State<ProfileMenuButton> {
 /// Le panneau du menu, aligné sur le bord droit du bouton.
 /// [anchor] : x = bord droit du bouton, y = juste sous le bouton.
 class _MenuPanel extends StatelessWidget {
-  const _MenuPanel({required this.anchor, required this.name});
+  const _MenuPanel({
+    required this.anchor,
+    required this.name,
+    required this.settings,
+  });
 
   final Offset anchor;
   final String name;
+
+  /// Affiche « Paramètres ».
+  final bool settings;
 
   /// Largeur du texte tel qu'il sera affiché (langue + taille de texte).
   double _textWidth(BuildContext context, String text, TextStyle style) {
@@ -155,7 +169,12 @@ class _MenuPanel extends StatelessWidget {
     );
 
     // Le texte le plus long parmi les 3 lignes (change avec FR / EN).
-    final labels = [l10n.profile, l10n.switchProfile, l10n.pairingButton];
+    final labels = [
+      l10n.profile,
+      if (settings) l10n.settings,
+      l10n.switchProfile,
+      l10n.pairingButton,
+    ];
     final longest = labels
         .map((t) => _textWidth(context, t, itemStyle))
         .reduce((a, b) => a > b ? a : b);
@@ -239,6 +258,14 @@ class _MenuPanel extends StatelessWidget {
                         autofocus: true,
                         action: _ProfileMenuAction.profile,
                       ),
+                      if (settings) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _MenuItem(
+                          icon: Icons.settings_rounded,
+                          text: l10n.settings,
+                          action: _ProfileMenuAction.settings,
+                        ),
+                      ],
                       const SizedBox(height: AppSpacing.sm),
                       _MenuItem(
                         icon: Icons.switch_account_rounded,

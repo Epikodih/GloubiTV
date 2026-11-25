@@ -47,8 +47,13 @@ class PillChoice extends StatelessWidget {
             color: AppColors.text,
           ),
           const SizedBox(width: AppSpacing.xs),
-          // Flexible : un libellé long passe à la ligne au lieu de déborder.
-          Flexible(child: Text(text, style: AppText.body)),
+          // Peu de place : le texte se coupe au lieu de déborder.
+          Flexible(
+            child: Text(text,
+                style: AppText.body,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
         ],
       ),
     );

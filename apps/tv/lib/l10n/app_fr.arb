@@ -114,7 +114,111 @@
   "libraryLoadError": "Impossible de charger la médiathèque.",
   "noMediaForProfile": "Aucun média disponible pour ce profil.",
   "guestName": "Invité",
-
+  "navSearch": "Rechercher",
+  "navHome": "Accueil",
+  "navWatchlist": "À regarder",
+  "navFavorites": "Favoris",
+  "libraryNavigation": "Menu de la médiathèque",
+  "searchHint": "Rechercher dans tout le media center",
+  "settings": "Paramètres",
+  "sourcesTitle": "Dossiers du media center",
+  "sourcesHint": "Les dossiers que le media center scanne pour remplir la médiathèque. Tape un chemin (clavier du téléphone) ou parcours les dossiers.",
+  "sourcePathLabel": "Chemin du dossier",
+  "sourcePathHint": "D:\\Films ou smb://nas/films",
+  "browse": "Parcourir…",
+  "addSource": "Ajouter",
+  "removeSource": "Retirer",
+  "scanAll": "Tout scanner",
+  "scanAllStarted": "{count, plural, =0{Aucun dossier à scanner.} =1{Scan d’un dossier lancé.} other{Scan des {count} dossiers lancé.}}",
+  "@scanAllStarted": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "rescan": "Rescanner",
+  "noSources": "Aucun dossier pour l’instant : ajoutes-en un pour remplir la médiathèque.",
+  "enterFolder": "Indique d’abord un dossier.",
+  "folderPickError": "Impossible d’ouvrir le sélecteur de dossier.",
+  "sourcesLoadError": "Impossible de charger les dossiers.",
+  "sourceOnline": "En ligne",
+  "sourceOffline": "Hors ligne",
+  "sourceError": "Erreur",
+  "sourceUnknown": "Pas encore vérifié",
+  "neverScanned": "Jamais scanné",
+  "lastScan": "Dernier scan : {date}",
+  "@lastScan": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "sourceMediaCount": "{count, plural, =0{Aucun média} =1{1 média} other{{count} médias}}",
+  "@sourceMediaCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "sourceAdded": "« {name} » ajouté : le scan commence.",
+  "@sourceAdded": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "sourceRemoved": "« {name} » retiré.",
+  "@sourceRemoved": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "scanStarted": "Scan de « {name} » lancé.",
+  "@scanStarted": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "removeSourceConfirm": "Retirer « {name} » ? Ses médias disparaîtront de la médiathèque (les fichiers ne sont pas supprimés).",
+  "@removeSourceConfirm": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "close": "Fermer",
+  "play": "Lecture",
+  "playSoon": "La lecture arrive bientôt.",
+  "addFavorite": "Ajouter aux favoris",
+  "inFavorites": "Dans les favoris",
+  "addWatchlist": "À regarder plus tard",
+  "inWatchlist": "Dans « À regarder »",
+  "listUpdateError": "Impossible de mettre à jour la liste.",
+  "mediaDetailsLoadError": "Impossible de charger la fiche du média.",
+  "noOverview": "Pas encore de résumé pour ce média.",
+  "fileMissing": "Fichier introuvable : lecture impossible.",
+  "notRated": "Non classé",
+  "allAges": "Tous publics",
+  "ageRating": "{age}+",
+  "@ageRating": {
+    "placeholders": { "age": { "type": "int" } }
+  },
+  "durationMinutes": "{minutes} min",
+  "@durationMinutes": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "durationHours": "{hours} h {minutes} min",
+  "@durationHours": {
+    "placeholders": { "hours": { "type": "int" }, "minutes": { "type": "int" } }
+  },
+  "filters": "Filtres",
+  "filtersActive": "Filtres, {count} actifs",
+  "@filtersActive": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "clearFilters": "Effacer les filtres",
+  "filterType": "Type",
+  "filterGenre": "Genre",
+  "filterAge": "Âge",
+  "filterAll": "Tous",
+  "ageMax": "{age} ans max",
+  "@ageMax": {
+    "placeholders": { "age": { "type": "int" } }
+  },
+  "emptyWatchlist": "Ta liste « À regarder » est vide.",
+  "emptyFavorites": "Aucun favori pour l’instant.",
+  "emptyCategory": "Rien dans cette catégorie pour l’instant.",
+  "noResults": "Aucun résultat.",
+  "kindMovie": "Film",
+  "kindSeries": "Série",
+  "kindMusic": "Musique",
+  "kindPodcast": "Podcast",
+  "mediaWithKind": "{title}, {kind}",
+  "@mediaWithKind": {
+    "placeholders": { "title": { "type": "String" }, "kind": { "type": "String" } }
+  },
+  "unavailable": "indisponible",
   "playerPlay": "Lecture",
   "playerPause": "Pause",
   "playerRewind": "Reculer de 10 secondes",
@@ -149,7 +253,5 @@
   "subtitleBackgroundNone": "Aucun",
   "subtitleBackgroundTranslucent": "Semi-transparent",
   "subtitleBackgroundOpaque": "Noir",
-  "subtitlePreview": "Aperçu des sous-titres",
-
-  "mediaUnavailable": "Indisponible"
+  "subtitlePreview": "Aperçu des sous-titres"
 }

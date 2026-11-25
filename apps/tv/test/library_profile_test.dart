@@ -1,5 +1,6 @@
 import 'package:epikodi_tv/api/api.dart';
 import 'package:epikodi_tv/library/library_screen.dart';
+import 'package:epikodi_tv/library/media_views.dart';
 import 'package:epikodi_tv/profile/profile_screen.dart';
 import 'package:epikodi_tv/widgets/profile_menu.dart';
 import 'package:flutter/material.dart';
@@ -133,7 +134,13 @@ void main() {
         fr.sectionMusic,
         fr.sectionPodcasts
       ];
-      final ys = [for (final t in titles) tester.getTopLeft(find.text(t)).dy];
+      final ys = [
+        for (final t in titles)
+          tester
+              .getTopLeft(find.descendant(
+                  of: find.byType(MediaRows), matching: find.text(t)))
+              .dy
+      ];
       expect(ys, orderedEquals([...ys]..sort()));
 
       for (final t in [
