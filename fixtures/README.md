@@ -79,9 +79,11 @@ décrites dans `docs/dev/protocol.md`.
 
 **`profiles/update_request`** : mêmes champs que la création. `pin` est obligatoire quand on touche à la restriction d'âge (`age` ou `is_restricted`) ; le serveur répond `pin_required` ou `pin_invalid` sinon. Un invité ne peut modifier aucun compte.
 
-**Supprimer un compte** (`DELETE /api/profiles/{id}`, possible depuis « Qui regarde ? », sans profil choisi) : pas de PIN, le media center est local. Les favoris, la liste « À regarder » et la reprise de ce compte sont perdus ; les fichiers ne sont pas touchés.
+**Supprimer un compte** (`DELETE /api/profiles/{id}`, possible depuis « Qui regarde ? », sans profil choisi) : le PIN d'un adulte est demandé (`profiles/delete_request`, n'importe quel compte non restreint), pour un compte enfant comme adulte, sauf si un adulte est connecté ou qu'il n'existe aucun adulte : sinon un enfant supprimerait les adultes puis se créerait le sien, ou supprimerait le compte d'un autre enfant. `pin_required`, `pin_invalid`, `pin_locked` comme pour le choix du profil. Les favoris, la liste « À regarder » et la reprise de ce compte sont perdus ; les fichiers ne sont pas touchés.
 
-**Créer un compte** (`POST /api/profiles`) : libre depuis « Qui regarde ? » (aucun profil choisi). Un compte restreint connecté ne peut pas créer de compte non restreint (`admin_required`) ; un invité ne peut rien créer (`guest_forbidden`). Revenir à « Qui regarde ? » oublie le profil actif (`DELETE /api/session/profile`).
+**PIN effacé** (`epikodi-core reset-pin`, sur la machine du serveur) : le compte non restreint a `requires_pin: false`. Il se choisit sans PIN, puis la TV demande un nouveau code et l'enregistre (`PATCH /api/profiles/{id}` avec `new_pin` seul, le compte étant actif et adulte, aucun ancien PIN n'est demandé).
+
+**Créer un compte** (`POST /api/profiles`) : un compte restreint se crée librement. Un compte non restreint demande `adult_pin`, le PIN d'un adulte existant (n'importe quel compte non restreint), sauf si un adulte est connecté ou s'il n'existe encore aucun adulte (le tout premier compte) : un enfant ne peut donc pas se créer un compte adulte avec son propre PIN. `pin_required` (absent), `pin_invalid`, `pin_locked` (trop d'essais, comptés sur le premier adulte). Un invité ne peut rien créer (`guest_forbidden`). Revenir à « Qui regarde ? » oublie le profil actif (`DELETE /api/session/profile`).
 
 **`session/select_request`** :
 - `{"type": "guest"}` : ni `profile_id`, ni `pin`
@@ -111,7 +113,7 @@ décrites dans `docs/dev/protocol.md`.
 
 **`PUT` / `DELETE /api/media/{id}/favorite`** et **`/watchlist`** : ajoute ou retire le média de la liste du profil actif. Sans corps, réponse `204` sans corps. Idempotent : ajouter un média déjà présent ou retirer un média absent répond aussi `204`. Un invité reçoit `guest_forbidden` : la TV garde elle-même ses favoris et sa liste « À regarder », en mémoire, le temps de la session (perdus en changeant de profil).
 
-**`sources`** : les dossiers que le media center scanne (table `source`). Réservé aux comptes non restreints : un invité ou un compte restreint reçoit `settings_forbidden`.
+**`sources`** : les dossiers que le media center scanne (table `source`). Réservé aux comptes non restreints et à l'invité (sans compte, il faut pouvoir ajouter des dossiers) : un compte restreint reçoit `settings_forbidden`.
 - `uri` : `file:///D:/Films` pour un dossier du serveur, `smb://nas/films` pour un partage réseau. `protocol` (`local`, `smb`, `dlna`, `nfs`, `webdav`) est déduit de l'URI par le serveur.
 - `status` : `online`, `offline`, `error` ou `unknown` (jamais vérifié). `last_scan_at` est `null` tant qu'aucun scan n'a eu lieu. `media_count` : médias trouvés dans ce dossier.
 - `POST /api/sources` : `name` est facultatif (par défaut le nom du dossier). Dossier introuvable ou URI invalide : `validation_failed` (`details.fields.uri`). Dossier déjà ajouté : `source_exists`. Le serveur lance un premier scan.
@@ -144,7 +146,7 @@ décrites dans `docs/dev/protocol.md`.
 | `profile_name_taken` | 409 | Nom déjà pris |
 | `validation_failed` | 422 | Champ invalide (`details.fields`) |
 | `media_not_found` | 404 | Média ou `parent_id` inconnu, ou média masqué par le contrôle parental |
-| `settings_forbidden` | 403 | Réglages du media center demandés par un invité ou un compte restreint |
+| `settings_forbidden` | 403 | Réglages du media center demandés par un compte restreint |
 | `source_not_found` | 404 | Dossier de scan inconnu |
 | `source_exists` | 409 | Dossier déjà ajouté |
 | `invalid_query` | 422 | Paramètre invalide (`details.fields`) |

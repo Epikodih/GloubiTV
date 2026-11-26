@@ -214,6 +214,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pinMismatch => 'Les deux codes ne correspondent pas.';
 
   @override
+  String get pinResetSubtitle =>
+      'Ton code PIN a été effacé. Choisis-en un nouveau pour entrer.';
+
+  @override
+  String get adultPinTitle => 'Code PIN d’un adulte';
+
+  @override
+  String get adultPinCreateSubtitle =>
+      'Un adulte doit autoriser la création d’un compte sans restriction.';
+
+  @override
+  String get adultPinDeleteSubtitle =>
+      'Un adulte doit autoriser la suppression d’un compte.';
+
+  @override
   String get editAccounts => 'Modifier';
 
   @override

@@ -225,12 +225,16 @@ impl Ctx {
             .ok_or_else(ApiError::guest_forbidden)
     }
 
-    /// Un compte non restreint.
-    /// Réglages du media center (sources) : un compte non restreint.
-    /// Invité ou compte restreint : `settings_forbidden`.
-    pub fn settings(&self) -> ApiResult<&Profile> {
-        match self.profile()?.account() {
-            Some(p) if !p.is_restricted => Ok(p),
+    /// Réglages du media center (dossiers scannés) : un compte non restreint
+    /// ou l'invité (sinon, sans compte, personne ne pourrait ajouter de
+    /// dossier). Compte restreint (enfant) : `settings_forbidden`.
+    pub fn settings(&self) -> ApiResult<()> {
+        let p = self.profile()?;
+        if p.is_guest() {
+            return Ok(());
+        }
+        match p.account() {
+            Some(a) if !a.is_restricted => Ok(()),
             _ => Err(ApiError::settings_forbidden()),
         }
     }
@@ -306,6 +310,46 @@ pub async fn check_pin(state: &AppState, profile: &Profile, pin: Option<&str>) -
         "Code PIN incorrect.",
     )
     .with_details(json!({ "attempts_left": max - failures })))
+}
+
+/// PIN de l'un des comptes `owners` (ex. : n'importe quel adulte). Un PIN
+/// qui correspond à l'un d'eux suffit, sans compter d'échec chez les
+/// autres. Sinon un seul échec est compté, sur le premier compte : le
+/// verrouillage s'applique donc aussi à cette saisie (pas de force brute).
+pub async fn check_any_pin(
+    state: &AppState,
+    owners: &[Profile],
+    pin: Option<&str>,
+) -> ApiResult<()> {
+    let Some(first) = owners.first() else {
+        return Ok(());
+    };
+    let Some(pin) = pin else {
+        return check_pin(state, first, None).await; // pin_required
+    };
+    let now = state.now();
+    let locked = lock(&state.pin_attempts)
+        .get(&first.id)
+        .and_then(|a| a.locked_until)
+        .is_some_and(|until| now < until);
+    if !locked && check_pin_format(pin).is_ok() {
+        for owner in owners {
+            let Some(hash) = owner.pin_hash.clone() else {
+                continue;
+            };
+            let p = pin.to_string();
+            let ok = tokio::task::spawn_blocking(move || verify_pin(&p, &hash))
+                .await
+                .unwrap_or(false);
+            if ok {
+                lock(&state.pin_attempts).remove(&first.id);
+                return Ok(());
+            }
+        }
+    }
+    // verrouillé ou aucun PIN ne correspond : compté (ou refusé) sur le
+    // premier compte, avec les erreurs habituelles
+    check_pin(state, first, Some(pin)).await
 }
 
 fn pin_locked(retry_after_s: i64) -> ApiError {

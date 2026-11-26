@@ -20,9 +20,18 @@ import '../widgets/widgets.dart';
 /// Se ferme avec le compte créé (Map) via Navigator.pop, ou `null` si annulé.
 /// Le serveur rend le compte actif dès sa création.
 class CreateAccountScreen extends StatefulWidget {
-  const CreateAccountScreen({super.key, required this.api});
+  const CreateAccountScreen({
+    super.key,
+    required this.api,
+    this.adultExists = false,
+  });
 
   final Api api;
+
+  /// Un compte adulte existe déjà : créer un compte sans restriction demande
+  /// le PIN d'un adulte (sinon un enfant se crée un compte adulte avec son
+  /// propre code). Le tout premier compte, lui, est libre.
+  final bool adultExists;
 
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
@@ -116,6 +125,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     }
     // Compte sans restriction : le serveur exige un code PIN (il protège le
     // contrôle parental de ce compte). Saisi deux fois pour éviter une faute.
+    // Un adulte existe : son PIN d'abord (un enfant est bloqué ici), puis
+    // le code du nouveau compte.
+    final needsAdult = !_restricted && widget.adultExists;
+    String? adultPin;
+    if (needsAdult) {
+      adultPin = await _askAdultPin(l10n, null);
+      if (adultPin == null || !mounted) return; // annulé
+    }
     String? pin;
     if (!_restricted) {
       pin = await _choosePin(l10n);
@@ -125,25 +142,45 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       _busy = true;
       _error = null;
     });
-    try {
-      final profile = await widget.api.createProfile(
-        name: name,
-        icon: _customPath != null ? 'file:$_customPath' : _icon,
-        language: Localizations.localeOf(context).languageCode,
-        age: _age,
-        isRestricted: _restricted,
-        pin: pin,
-      );
-      if (mounted) Navigator.of(context).pop(profile);
-    } on ApiException catch (e) {
-      if (mounted) {
+    final language = Localizations.localeOf(context).languageCode;
+    while (true) {
+      try {
+        final profile = await widget.api.createProfile(
+          name: name,
+          icon: _customPath != null ? 'file:$_customPath' : _icon,
+          language: language,
+          age: _age,
+          isRestricted: _restricted,
+          pin: pin,
+          adultPin: adultPin,
+        );
+        if (mounted) Navigator.of(context).pop(profile);
+        return;
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        // PIN adulte faux : on le redemande, sans refaire le nouveau code.
+        if (needsAdult && e.code == 'pin_invalid') {
+          adultPin = await _askAdultPin(l10n, e.message);
+          if (adultPin != null && mounted) continue;
+          if (mounted) setState(() => _busy = false);
+          return;
+        }
         setState(() {
           _busy = false;
           _error = e.message;
         });
+        return;
       }
     }
   }
+
+  /// PIN d'un adulte existant (pavé numérique sur le téléphone). `null` si
+  /// annulé.
+  Future<String?> _askAdultPin(AppLocalizations l10n, String? error) =>
+      showPinDialog(context,
+          title: l10n.adultPinTitle,
+          subtitle: l10n.adultPinCreateSubtitle,
+          errorText: error);
 
   /// Nouveau code PIN, saisi puis confirmé. `null` si annulé.
   Future<String?> _choosePin(AppLocalizations l10n) async {

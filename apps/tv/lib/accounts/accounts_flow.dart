@@ -8,6 +8,7 @@ import '../library/library_screen.dart';
 import '../remote/remote_keys.dart';
 import 'accounts_screen.dart';
 import 'create_account_screen.dart';
+import '../widgets/pin_dialog.dart' show showPinDialog;
 import 'pin_dialog.dart';
 
 /// Relie les écrans de choix de compte :
@@ -104,8 +105,12 @@ class _AccountsFlowState extends State<AccountsFlow> {
           .whereType<Map<String, dynamic>>()
           .toList();
 
-  /// Supprime un compte : une confirmation, puis `DELETE /api/profiles/{id}`
-  /// (pas de PIN : le media center est local).
+  /// Un compte adulte (protégé par un PIN) existe.
+  bool get _adultExists => _profiles.any((p) => p['requires_pin'] == true);
+
+  /// Supprime un compte : une confirmation, le PIN d'un adulte (dès qu'un
+  /// adulte existe : sinon un enfant supprime les adultes puis se crée le
+  /// sien), puis `DELETE /api/profiles/{id}`.
   Future<void> _delete(Map<String, dynamic> p) async {
     if (_busy) return;
     final ok = await showDialog<bool>(
@@ -113,9 +118,33 @@ class _AccountsFlowState extends State<AccountsFlow> {
       builder: (_) => _ConfirmDeleteDialog(name: '${p['name']}'),
     );
     if (ok != true || !mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final needsAdult = _adultExists;
+    String? pin;
+    String? pinError;
     _busy = true;
     try {
-      await widget.api.deleteProfile(p['id'] as Object);
+      while (true) {
+        if (needsAdult) {
+          if (!mounted) return;
+          pin = await showPinDialog(context,
+              title: l10n.adultPinTitle,
+              subtitle: l10n.adultPinDeleteSubtitle,
+              errorText: pinError);
+          if (pin == null || !mounted) return; // annulé
+        }
+        try {
+          await widget.api.deleteProfile(p['id'] as Object, pin: pin);
+          break;
+        } on ApiException catch (e) {
+          // PIN faux : redemandé dans la popup.
+          if (needsAdult && e.code == 'pin_invalid' && mounted) {
+            pinError = e.message;
+            continue;
+          }
+          rethrow;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _data = {
@@ -139,6 +168,13 @@ class _AccountsFlowState extends State<AccountsFlow> {
   Future<void> _pick(Map<String, dynamic> p) async {
     if (_busy) return;
     final id = p['id']; // entier, comme dans la fixture
+
+    // Compte adulte sans PIN : son PIN a été effacé (`epikodi-core
+    // reset-pin`). Il faut en choisir un nouveau avant d'entrer.
+    if (p['is_restricted'] == false && p['requires_pin'] != true) {
+      await _pickAfterPinReset(p);
+      return;
+    }
 
     if (p['requires_pin'] == true) {
       Map<String, dynamic>? active;
@@ -164,13 +200,64 @@ class _AccountsFlowState extends State<AccountsFlow> {
     await _run(() => widget.api.selectProfile(profileId: id));
   }
 
+  /// Ouvre le compte, demande un nouveau PIN (deux fois) et l'enregistre.
+  /// Annulé : on revient à « Qui regarde ? » sans entrer.
+  Future<void> _pickAfterPinReset(Map<String, dynamic> p) async {
+    final l10n = AppLocalizations.of(context)!;
+    final id = p['id'] as Object;
+    _busy = true;
+    try {
+      await widget.api.selectProfile(profileId: id);
+      String? error;
+      String? pin;
+      while (pin == null) {
+        if (!mounted) return;
+        final first = await showPinDialog(context,
+            title: l10n.newPinTitle,
+            subtitle: l10n.pinResetSubtitle,
+            errorText: error);
+        if (first == null || !mounted) break;
+        final second = await showPinDialog(context,
+            title: l10n.confirmPinTitle, subtitle: l10n.confirmPinSubtitle);
+        if (second == null) break;
+        if (first == second) {
+          pin = first;
+        } else {
+          error = l10n.pinMismatch;
+        }
+      }
+      if (pin == null) {
+        await widget.api.clearProfile(); // annulé : pas d'entrée sans PIN
+        return;
+      }
+      final profile = await widget.api.setNewPin(id, pin);
+      if (!mounted) return;
+      setState(() {
+        _data = {
+          ..._data,
+          'profiles': [
+            for (final o in _profiles)
+              if (o['id'] == id) {...o, 'requires_pin': true} else o,
+          ],
+        };
+      });
+      _busy = false;
+      await _openLibrary(profile);
+    } on ApiException catch (e) {
+      if (mounted) _showError(e.message);
+    } finally {
+      _busy = false;
+    }
+  }
+
   Future<void> _guest() => _run(() => widget.api.selectProfile(guest: true));
 
   Future<void> _create() async {
     if (_busy) return;
     final created = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
-        builder: (_) => CreateAccountScreen(api: widget.api),
+        builder: (_) =>
+            CreateAccountScreen(api: widget.api, adultExists: _adultExists),
       ),
     );
     if (created == null || !mounted) return; // Annulé.

@@ -75,13 +75,13 @@ impl ApiError {
         )
     }
 
-    /// Réglages du media center (sources...) demandés par un invité ou un
-    /// compte restreint (contrat `fixtures/README.md`).
+    /// Réglages du media center (sources...) demandés par un compte
+    /// restreint (contrat `fixtures/README.md`).
     pub fn settings_forbidden() -> Self {
         Self::new(
             StatusCode::FORBIDDEN,
             "settings_forbidden",
-            "Réglages réservés à un compte non restreint.",
+            "Réglages réservés aux comptes sans restriction et à l'invité.",
         )
     }
 

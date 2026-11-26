@@ -390,11 +390,16 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Zoé');
       await tester.tap(find.text(fr.createAccountButton));
       await tester.pumpAndSettle();
+      // Marc existe : le PIN d'un adulte d'abord, puis le nouveau code.
+      expect(find.text(fr.adultPinTitle), findsOneWidget);
+      await tapPin(tester, '1234');
+      await tester.pumpAndSettle();
       await tapPin(tester, '4321');
       await tester.pumpAndSettle();
       await tapPin(tester, '4321');
       await settle(tester);
       await tester.pump(const Duration(seconds: 1));
+      expect(backend.last('POST', '/api/profiles')!.json['adult_pin'], '1234');
       expect(find.text('Impossible pour un invité.'), findsNothing);
       expect(find.byType(LibraryScreen), findsOneWidget, reason: 'compte créé');
     });
@@ -472,6 +477,81 @@ void main() {
     });
   });
 
+  group('PIN effacé (epikodi-core reset-pin)', () {
+    late FixtureBackend backend;
+    setUp(() => backend = FixtureBackend());
+
+    /// Marc : adulte sans PIN (effacé).
+    Map<String, dynamic> resetData() {
+      final d = accountsData();
+      final profiles = [
+        for (final p in d['profiles'] as List)
+          if ((p as Map)['id'] == 1)
+            {...p.cast<String, dynamic>(), 'requires_pin': false}
+          else
+            p,
+      ];
+      return {...d, 'profiles': profiles};
+    }
+
+    Future<void> pumpFlow(WidgetTester tester) async {
+      await pumpTv(
+        tester,
+        AccountsFlow(
+          api: Api(fixtureClient(backend).http),
+          data: resetData(),
+          onBackToPairing: () {},
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('nouveau PIN choisi deux fois, enregistré, puis on entre',
+        (tester) async {
+      await pumpFlow(tester);
+      await tester.tap(find.text('Marc'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(backend.last('POST', '/api/session/profile'), isNotNull);
+      expect(find.text(fr.pinResetSubtitle), findsOneWidget);
+      await tapPin(tester, '2468');
+      await tester.pumpAndSettle();
+      await tapPin(tester, '2468');
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+          backend.last('PATCH', '/api/profiles/1')!.json, {'new_pin': '2468'});
+      expect(find.byType(LibraryScreen), findsOneWidget);
+    });
+
+    testWidgets('annulé : pas d\'entrée, profil oublié', (tester) async {
+      await pumpFlow(tester);
+      await tester.tap(find.text('Marc'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(fr.cancel));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(backend.calls('PATCH', '/api/profiles/{id}'), isEmpty);
+      expect(backend.last('DELETE', '/api/session/profile'), isNotNull);
+      expect(find.byType(LibraryScreen), findsNothing);
+      expect(find.text(fr.whoIsWatching), findsOneWidget);
+    });
+
+    testWidgets('les deux codes diffèrent : redemandé', (tester) async {
+      await pumpFlow(tester);
+      await tester.tap(find.text('Marc'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      await tapPin(tester, '2468');
+      await tester.pumpAndSettle();
+      await tapPin(tester, '1357');
+      await tester.pumpAndSettle();
+      expect(find.text(fr.pinMismatch), findsOneWidget);
+      expect(backend.calls('PATCH', '/api/profiles/{id}'), isEmpty);
+    });
+  });
+
   group('Modifier : supprimer des comptes', () {
     late FixtureBackend backend;
     setUp(() => backend = FixtureBackend());
@@ -533,26 +613,75 @@ void main() {
       expect(find.byKey(const ValueKey('delete-badge')), findsNothing);
     });
 
-    testWidgets('confirmation puis DELETE, sans PIN, compte retiré',
+    testWidgets('confirmation, PIN d\'un adulte, puis DELETE, compte retiré',
         (tester) async {
       await pumpFlow(tester);
-      await startDelete(tester, 1); // Marc, pourtant protégé par un PIN
+      await startDelete(tester, 1); // Marc
+      expect(find.text(fr.adultPinTitle), findsOneWidget,
+          reason: 'un adulte existe : son PIN est demandé');
+      expect(find.text(fr.adultPinDeleteSubtitle), findsOneWidget);
+      await tapPin(tester, '1234');
       await settle(tester);
       await tester.pumpAndSettle();
-      expect(find.text(fr.pinTitle), findsNothing, reason: 'pas de PIN');
       final sent = backend.last('DELETE', '/api/profiles/1')!;
-      expect(sent.body, isNull);
+      expect(sent.json, {'pin': '1234'});
+      expectShapeOf(sent.json, 'profiles/delete_request.json');
       expect(account(1), findsNothing, reason: 'retiré de la liste');
       expect(account(2), findsOneWidget);
 
+      // Plus d'adulte : Léa se supprime sans PIN (le serveur ne le demande
+      // pas non plus).
       await tester.tap(account(2)); // Léa
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('confirm-delete-account')));
       await settle(tester);
       await tester.pumpAndSettle();
+      expect(find.text(fr.adultPinTitle), findsNothing);
+      expect(backend.last('DELETE', '/api/profiles/2')!.body, isNull);
       expect(account(2), findsNothing);
       expect(find.text(fr.noAccountYet), findsOneWidget,
           reason: 'plus de compte : retour à l\'écran normal');
+    });
+
+    testWidgets('compte enfant : le PIN d\'un adulte aussi', (tester) async {
+      await pumpFlow(tester);
+      await startDelete(tester, 2); // Léa
+      expect(find.text(fr.adultPinTitle), findsOneWidget);
+      await tapPin(tester, '1234');
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(backend.last('DELETE', '/api/profiles/2')!.json, {'pin': '1234'});
+      expect(account(2), findsNothing);
+    });
+
+    testWidgets('PIN adulte faux : redemandé avec le message, puis bon',
+        (tester) async {
+      backend.fail('DELETE', '/api/profiles/{id}',
+          status: 403, code: 'pin_invalid', message: 'Code PIN incorrect.');
+      await pumpFlow(tester);
+      await startDelete(tester, 1);
+      await tapPin(tester, '9999');
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Code PIN incorrect.'), findsOneWidget,
+          reason: 'dans la popup du PIN');
+      expect(account(1), findsOneWidget, reason: 'pas encore supprimé');
+
+      backend.reset('DELETE', '/api/profiles/{id}');
+      await tapPin(tester, '1234');
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(backend.calls('DELETE', '/api/profiles/{id}'), hasLength(2));
+      expect(account(1), findsNothing);
+    });
+
+    testWidgets('PIN adulte annulé : rien n\'est supprimé', (tester) async {
+      await pumpFlow(tester);
+      await startDelete(tester, 1);
+      await tester.tap(find.text(fr.cancel));
+      await tester.pumpAndSettle();
+      expect(backend.calls('DELETE', '/api/profiles/{id}'), isEmpty);
+      expect(account(1), findsOneWidget);
     });
 
     testWidgets('« Annuler » : rien n\'est supprimé', (tester) async {
@@ -575,6 +704,7 @@ void main() {
           message: 'Compte introuvable.');
       await pumpFlow(tester);
       await startDelete(tester, 1);
+      await tapPin(tester, '1234');
       await settle(tester);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('error-toast')), findsOneWidget);
@@ -675,6 +805,77 @@ void main() {
       await tapPin(tester, '2468');
       await settle(tester);
       expect(backend.last('POST', '/api/profiles')!.json['pin'], '2468');
+    });
+
+    Future<void> pumpCreateWithAdult(WidgetTester tester) async {
+      await pumpTv(
+          tester,
+          CreateAccountScreen(
+              api: Api(fixtureClient(backend).http), adultExists: true));
+      await tester.pump();
+    }
+
+    testWidgets(
+        'un adulte existe : son PIN d\'abord, puis le nouveau code (adult_pin)',
+        (tester) async {
+      await pumpCreateWithAdult(tester);
+      await tester.enterText(find.byType(TextField), 'Julie');
+      await tester.tap(find.text(fr.createAccountButton));
+      await tester.pumpAndSettle();
+      expect(find.text(fr.adultPinTitle), findsOneWidget);
+      expect(find.text(fr.adultPinCreateSubtitle), findsOneWidget);
+      await tapPin(tester, '1234'); // PIN de l'adulte existant
+      await tester.pumpAndSettle();
+      expect(find.text(fr.newPinTitle), findsOneWidget);
+      await tapPin(tester, '4321');
+      await tester.pumpAndSettle();
+      await tapPin(tester, '4321');
+      await settle(tester);
+      await tester.pumpAndSettle();
+      final sent = backend.last('POST', '/api/profiles')!.json;
+      expect(sent['pin'], '4321');
+      expect(sent['adult_pin'], '1234');
+    });
+
+    testWidgets('PIN adulte faux : seul le PIN adulte est redemandé',
+        (tester) async {
+      backend.fail('POST', '/api/profiles',
+          status: 403, code: 'pin_invalid', message: 'Code PIN incorrect.');
+      await pumpCreateWithAdult(tester);
+      await tester.enterText(find.byType(TextField), 'Julie');
+      await tester.tap(find.text(fr.createAccountButton));
+      await tester.pumpAndSettle();
+      await tapPin(tester, '9999');
+      await tester.pumpAndSettle();
+      await tapPin(tester, '4321');
+      await tester.pumpAndSettle();
+      await tapPin(tester, '4321');
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(fr.adultPinTitle), findsOneWidget, reason: 'redemandé');
+      expect(find.text('Code PIN incorrect.'), findsOneWidget);
+
+      backend.reset('POST', '/api/profiles');
+      await tapPin(tester, '1234');
+      await settle(tester);
+      await tester.pumpAndSettle();
+      final calls = backend.calls('POST', '/api/profiles');
+      expect(calls, hasLength(2));
+      expect(calls.last.json['adult_pin'], '1234');
+      expect(calls.last.json['pin'], '4321', reason: 'nouveau code gardé');
+    });
+
+    testWidgets('compte restreint : pas de PIN adulte', (tester) async {
+      await pumpCreateWithAdult(tester);
+      await tester.enterText(find.byType(TextField), 'Léa');
+      await tester.tap(find.text(fr.no)); // profil enfant : oui
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(fr.createAccountButton));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(fr.adultPinTitle), findsNothing);
+      final sent = backend.last('POST', '/api/profiles')!.json;
+      expect(sent.containsKey('adult_pin'), isFalse);
     });
 
     testWidgets('PIN annulé : aucun compte créé', (tester) async {

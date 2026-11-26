@@ -224,6 +224,11 @@ pub struct CreateProfileRequest {
     pub is_restricted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pin: Option<String>,
+    /// PIN d'un adulte existant : obligatoire pour créer un compte non
+    /// restreint dès qu'un adulte existe (un enfant ne peut pas se créer
+    /// un compte adulte avec son propre PIN).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adult_pin: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

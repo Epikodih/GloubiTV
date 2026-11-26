@@ -452,6 +452,30 @@ abstract class AppLocalizations {
   /// **'Les deux codes ne correspondent pas.'**
   String get pinMismatch;
 
+  /// No description provided for @pinResetSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ton code PIN a été effacé. Choisis-en un nouveau pour entrer.'**
+  String get pinResetSubtitle;
+
+  /// No description provided for @adultPinTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN d’un adulte'**
+  String get adultPinTitle;
+
+  /// No description provided for @adultPinCreateSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un adulte doit autoriser la création d’un compte sans restriction.'**
+  String get adultPinCreateSubtitle;
+
+  /// No description provided for @adultPinDeleteSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un adulte doit autoriser la suppression d’un compte.'**
+  String get adultPinDeleteSubtitle;
+
   /// No description provided for @editAccounts.
   ///
   /// In fr, this message translates to:

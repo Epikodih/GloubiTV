@@ -226,7 +226,15 @@
         },
         {
           "status": 403,
-          "code": "admin_required"
+          "code": "pin_required"
+        },
+        {
+          "status": 403,
+          "code": "pin_invalid"
+        },
+        {
+          "status": 429,
+          "code": "pin_locked"
         }
       ]
     },
@@ -298,6 +306,7 @@
       "path": "/api/profiles/{id}",
       "auth": "bearer (ou TV locale)",
       "status": 204,
+      "request": "profiles/delete_request.json",
       "errors": [
         {
           "status": 401,
@@ -306,6 +315,18 @@
         {
           "status": 404,
           "code": "profile_not_found"
+        },
+        {
+          "status": 403,
+          "code": "pin_required"
+        },
+        {
+          "status": 403,
+          "code": "pin_invalid"
+        },
+        {
+          "status": 429,
+          "code": "pin_locked"
         }
       ]
     },

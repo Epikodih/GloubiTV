@@ -60,10 +60,10 @@ Un appairage avec le même `install_id` révoque l'ancien jeton.
 | Route | Accès | Notes |
 |---|---|---|
 | `GET /api/profiles` | jeton | invité, droit de créer, comptes (`profiles/list.json`) |
-| `POST /api/profiles` | jeton, pas l'invité | `201`, le compte devient actif. PIN 4 chiffres obligatoire si non restreint, interdit sinon. Créer un compte non restreint alors qu'un adulte existe : `admin_required` sans adulte connecté |
+| `POST /api/profiles` | jeton, pas l'invité | `201`, le compte devient actif. PIN 4 chiffres obligatoire si non restreint, interdit sinon. Compte non restreint alors qu'un adulte existe et qu'aucun n'est connecté : `adult_pin`, le PIN de n'importe quel adulte (`pin_required`, `pin_invalid`, `pin_locked`). Le tout premier adulte est libre |
 | `GET /api/profiles/{id}` | jeton | `profiles/get_response.json` |
-| `PATCH /api/profiles/{id}` | compte | champs facultatifs. Toucher à `age` / `is_restricted` / `new_pin` : PIN du compte (`pin_required`, `pin_invalid`, `pin_locked`), ou un adulte connecté pour un compte restreint. Un profil restreint ne modifie que lui-même |
-| `DELETE /api/profiles/{id}` | compte | corps facultatif `{"pin": "1234"}` |
+| `PATCH /api/profiles/{id}` | compte | champs facultatifs. Toucher à `age` / `is_restricted` / `new_pin` : PIN du compte (`pin_required`, `pin_invalid`, `pin_locked`), ou un adulte connecté pour un compte restreint ou sans PIN (effacé par `reset-pin`). Un profil restreint ne modifie que lui-même |
+| `DELETE /api/profiles/{id}` | jeton ou TV locale | `204`. Sans adulte connecté, le PIN de n'importe quel adulte (`profiles/delete_request.json`), pour un compte enfant comme adulte, sauf s'il n'existe aucun adulte avec PIN |
 | `GET /api/session` | jeton | appareil (`null` pour la TV) et profil actif |
 | `POST /api/session/profile` | jeton | `{"type": "guest"}` ou `{"type": "account", "profile_id", "pin"?}` |
 | `DELETE /api/session/profile` | jeton | retour au choix du profil (`204`) |

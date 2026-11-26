@@ -125,11 +125,15 @@ void main() {
       expect(find.byType(SourcesScreen), findsOneWidget);
     });
 
-    testWidgets('invité et compte restreint : pas de « Paramètres »',
+    testWidgets('invité : « Paramètres » disponible (choisir ses dossiers)',
         (tester) async {
       await openMenu(tester, {'kind': 'guest', 'id': null, 'name': null});
-      expect(find.text(fr.settings), findsNothing);
-      expect(find.text(fr.pairingButton), findsOneWidget);
+      expect(find.text(fr.settings), findsOneWidget,
+          reason: 'sans compte, il faut pouvoir ajouter des dossiers');
+      await tester.tap(find.text(fr.settings));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(SourcesScreen), findsOneWidget);
     });
 
     testWidgets('compte restreint : pas de « Paramètres »', (tester) async {

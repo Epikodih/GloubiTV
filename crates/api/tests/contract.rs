@@ -63,6 +63,7 @@ const COVERED: &[&str] = &[
     "profiles/get_response.json",
     "profiles/update_request.json",
     "profiles/update_response.json",
+    "profiles/delete_request.json",
     "session/current.json",
     "session/select_request.json",
     "session/select_response.json",
@@ -100,6 +101,7 @@ fn chaque_fixture_fait_l_aller_retour() {
     round_trip::<PairResponse>("pairing/response.json");
     round_trip::<ProfilesList>("profiles/list.json");
     round_trip::<CreateProfileRequest>("profiles/create_request.json");
+    round_trip::<DeleteProfileRequest>("profiles/delete_request.json");
     round_trip::<CreateProfileResponse>("profiles/create_response.json");
     round_trip::<GetProfileResponse>("profiles/get_response.json");
     round_trip::<UpdateProfileRequest>("profiles/update_request.json");

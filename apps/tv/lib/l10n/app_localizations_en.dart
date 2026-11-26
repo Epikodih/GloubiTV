@@ -211,6 +211,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pinMismatch => 'The two PINs do not match.';
 
   @override
+  String get pinResetSubtitle =>
+      'Your PIN was reset. Choose a new one to continue.';
+
+  @override
+  String get adultPinTitle => 'An adult\'s PIN';
+
+  @override
+  String get adultPinCreateSubtitle =>
+      'An adult must approve creating an unrestricted account.';
+
+  @override
+  String get adultPinDeleteSubtitle =>
+      'An adult must approve deleting an account.';
+
+  @override
   String get editAccounts => 'Edit';
 
   @override
