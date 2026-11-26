@@ -1,13 +1,66 @@
+import 'dart:async';
+
 import 'package:epikodi_client/epikodi_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../locale.dart';
-import '../pairing/tv_events.dart';
+import '../library/library_screen.dart';
+import '../player/server_player.dart';
 
 /// Champ texte qui a le focus sur la TV, tel qu'il est annoncé au téléphone
 /// (qui ouvre alors son clavier : la TV, elle, n'en a pas).
+/// Code PIN demandé sur la TV (choix d'un compte, contrôle parental…) : le
+/// téléphone affiche un pavé numérique à la place des flèches.
+///
+/// Chaque popup PIN en crée un à l'ouverture (et un nouveau après un code
+/// faux, pour que le téléphone efface sa saisie) et le met dans
+/// [remotePinEntry] ; elle le retire en se fermant.
+class RemotePinEntry {
+  RemotePinEntry({
+    required this.label,
+    required this.onDigits,
+    this.length = 4,
+  }) : id = _next++;
+
+  static int _next = 1000000;
+
+  /// Change à chaque demande : le téléphone repart d'une saisie vide.
+  final int id;
+
+  /// Titre affiché sur le téléphone (« Code PIN de Marc », « Code faux »…).
+  final String label;
+  final int length;
+
+  /// Saisie complète tapée sur le téléphone (`"12"`, puis `"123"`…).
+  final ValueChanged<String> onDigits;
+
+  /// Annonce au téléphone (`POST /api/tv/text-input`, `keyboard: "pin"`).
+  Map<String, Object?> toJson() => {
+        'active': true,
+        'id': id,
+        'label': label,
+        'value': '',
+        'obscure': true,
+        'keyboard': 'pin',
+        'max_length': length,
+      };
+}
+
+/// Code PIN en cours sur la TV (`null` : aucun).
+final remotePinEntry = ValueNotifier<RemotePinEntry?>(null);
+
+/// Ouvre / remplace la saisie PIN de la TV ([remotePinEntry]).
+void showRemotePin(RemotePinEntry entry) => remotePinEntry.value = entry;
+
+/// Retire [entry] si c'est encore la saisie en cours (popup fermée).
+void hideRemotePin(RemotePinEntry? entry) {
+  if (entry != null && remotePinEntry.value == entry) {
+    remotePinEntry.value = null;
+  }
+}
+
 class TextFieldInfo {
   const TextFieldInfo({
     required this.id,
@@ -43,6 +96,11 @@ class TextFieldInfo {
 /// `pairing`, quand le téléphone se désappaire). Rempli par l'écran
 /// d'appairage quand il passe la main aux comptes ; `null` sur l'appairage.
 VoidCallback? remoteBackToPairing;
+
+/// Retour à « Qui regarde ? », demandé par la télécommande (raccourci
+/// `switch_profile`). Rempli par l'écran des comptes ; `null` ailleurs
+/// (appairage).
+VoidCallback? remoteSwitchProfile;
 
 /// Champ texte qui a le focus, ou `null`.
 EditableTextState? focusedEditable() {
@@ -128,16 +186,25 @@ class RemoteKeyHandler {
     final key = event['key'];
     if (key is String) press(key);
     final text = event['text'];
-    if (text is String) typeText(text, done: event['done'] == true);
+    if (text is String) {
+      // Popup PIN ouverte : les chiffres du téléphone vont dans ses points.
+      final pin = remotePinEntry.value;
+      if (pin != null) {
+        pin.onDigits(text.replaceAll(RegExp(r'[^0-9]'), ''));
+      } else {
+        typeText(text, done: event['done'] == true);
+      }
+    }
     if (event['shortcut'] == 'language') setLanguage(event['language']);
     if (event['shortcut'] == 'pairing') remoteBackToPairing?.call();
+    if (event['shortcut'] == 'switch_profile') remoteSwitchProfile?.call();
   }
 
   /// Raccourci « langue » : change la langue de la TV (fr ou en).
   void setLanguage(Object? code) {
     if (code is! String) return;
-    final supported = AppLocalizations.supportedLocales
-        .any((l) => l.languageCode == code);
+    final supported =
+        AppLocalizations.supportedLocales.any((l) => l.languageCode == code);
     if (supported) appLocale.value = Locale(code);
   }
 
@@ -170,7 +237,11 @@ class RemoteKeyHandler {
         }
         navigator.currentState?.maybePop();
       case 'home':
-        navigator.currentState?.popUntil((route) => route.isFirst);
+        // Retour au media center (médiathèque) : ferme ce qui est par-dessus
+        // (fiche, lecteur, paramètres…). Sans médiathèque ouverte (comptes,
+        // appairage) : premier écran.
+        navigator.currentState?.popUntil((route) =>
+            route.settings.name == LibraryScreen.routeName || route.isFirst);
     }
   }
 
@@ -257,9 +328,9 @@ class TextFieldWatcher {
   void dispose() => FocusManager.instance.removeListener(_check);
 }
 
-/// Pendant toute la vie de l'app (routes provisoires du faux serveur
-/// `test_api.py`, pas encore dans les fixtures) :
-///  - écoute la télécommande (`GET /api/tv/remote`) : touches et texte ;
+/// Pendant toute la vie de l'app :
+///  - écoute la télécommande sur le WebSocket du cœur (`GET /api/ws`) :
+///    touches, texte tapé sur le téléphone et raccourcis (langue) ;
 ///  - annonce le champ texte qui a le focus (`POST /api/tv/text-input`),
 ///    pour que le téléphone ouvre son clavier.
 class RemoteKeyListener extends StatefulWidget {
@@ -268,39 +339,74 @@ class RemoteKeyListener extends StatefulWidget {
     required this.baseUrl,
     required this.navigator,
     required this.child,
+    this.createLink,
+    this.createClient,
   });
 
   final String baseUrl;
   final GlobalKey<NavigatorState> navigator;
   final Widget child;
 
+  /// Connexion temps réel au cœur (faux flux dans les tests).
+  final PlayerLink Function()? createLink;
+
+  /// Client HTTP des annonces au téléphone (faux serveur dans les tests).
+  final EpikodiClient Function()? createClient;
+
   @override
   State<RemoteKeyListener> createState() => _RemoteKeyListenerState();
 }
 
 class _RemoteKeyListenerState extends State<RemoteKeyListener> {
-  late final TvEvents _events;
+  /// Événements de la télécommande relayés par le cœur :
+  ///  - `input` `{"key": "up"}` : touche ;
+  ///  - `remote.text` `{"text": "Léa", "done": false}` : clavier du téléphone ;
+  ///  - `remote.shortcut` `{"shortcut": "language", "language": "en"}`.
+  static const _remoteEvents = {'input', 'remote.text', 'remote.shortcut'};
+
+  late final PlayerLink _link;
+  StreamSubscription<Map<String, dynamic>>? _sub;
   late final TextFieldWatcher _watcher;
-  late final EpikodiClient _client = EpikodiClient(baseUrl: widget.baseUrl);
+  late final EpikodiClient _client =
+      widget.createClient?.call() ?? EpikodiClient(baseUrl: widget.baseUrl);
 
   @override
   void initState() {
     super.initState();
     _watcher = TextFieldWatcher(_announce);
+    remotePinEntry.addListener(_pinChanged);
     final handler =
         RemoteKeyHandler(widget.navigator, onTextFieldOk: _watcher.resend);
-    _events = TvEvents(
-      baseUrl: widget.baseUrl,
-      sessionId: '',
-      path: '/api/tv/remote',
-      onEvent: handler.handle,
-    )..start();
+    _link =
+        widget.createLink?.call() ?? ServerPlayerLink(baseUrl: widget.baseUrl);
+    _sub = _link.events.listen((event) {
+      if (!_remoteEvents.contains(event['type'])) return;
+      final data = event['data'];
+      if (data is Map<String, dynamic>) handler.handle(data);
+    });
   }
 
+  /// Champ texte qui a le focus. Ignoré pendant une saisie PIN : le
+  /// téléphone garde son pavé numérique.
   Future<void> _announce(TextFieldInfo? field) async {
+    if (remotePinEntry.value != null) return;
+    await _post(field?.toJson() ?? const {'active': false});
+  }
+
+  /// Popup PIN ouverte (pavé sur le téléphone) ou fermée (retour au champ
+  /// texte qui a le focus, ou aux flèches).
+  void _pinChanged() {
+    final pin = remotePinEntry.value;
+    if (pin != null) {
+      _post(pin.toJson());
+    } else {
+      _post(focusedTextField()?.toJson() ?? const {'active': false});
+    }
+  }
+
+  Future<void> _post(Map<String, Object?> body) async {
     try {
-      await _client.http.post('/api/tv/text-input',
-          body: field?.toJson() ?? const {'active': false});
+      await _client.http.post('/api/tv/text-input', body: body);
     } on ApiException {
       // Pas de serveur ou route absente : la TV reste utilisable au clavier.
     }
@@ -308,8 +414,10 @@ class _RemoteKeyListenerState extends State<RemoteKeyListener> {
 
   @override
   void dispose() {
+    remotePinEntry.removeListener(_pinChanged);
     _watcher.dispose();
-    _events.close();
+    _sub?.cancel();
+    _link.close();
     _client.close();
     super.dispose();
   }

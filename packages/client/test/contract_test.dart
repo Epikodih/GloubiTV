@@ -182,6 +182,14 @@ void main() {
       expect(sent.json['platform'], 'linux');
     });
 
+    test('unpair envoie la forme de tv/unpair_request.json', () async {
+      await client.tv.unpair('a3f9c2e1');
+      final sent = b.last('POST', '/api/tv/unpair')!;
+      expect(
+          sent.body, readFixture('tv/unpair_request.json', fixturesDir: dir));
+      expect(b.routeFor('POST', '/api/tv/unpair')!.status, 204);
+    });
+
     test('refresh envoie la forme de tv/refresh_request.json', () async {
       await client.tv.refreshPairing('abc');
       final sent = b.last('POST', '/api/tv/pairing/refresh')!;

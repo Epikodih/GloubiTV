@@ -33,4 +33,12 @@ class TvApi {
     );
     return Pairing.fromJson(json['pairing'] as Map<String, dynamic>);
   }
+
+  /// POST /api/tv/unpair : « Appairage » sur la TV. Le téléphone appairé est
+  /// déconnecté (jeton révoqué), le profil actif oublié, et la session repasse
+  /// en phase `pairing`. Lève ApiException(code: 'tv_session_not_found') si le
+  /// serveur ne connaît plus la session.
+  Future<void> unpair(String tvSessionId) async {
+    await _client.post('/api/tv/unpair', body: {'tv_session_id': tvSessionId});
+  }
 }

@@ -22,13 +22,21 @@ Chaque fichier fixe la **forme** d'une requête ou d'une réponse (champs et typ
 | `POST /api/tv/connect` (201) | localhost | `tv/connect_request.json` | `tv/connect_response.json` |
 | `POST /api/tv/pairing/refresh` | localhost | `tv/refresh_request.json` | `tv/refresh_response.json` |
 | `GET /api/tv/status` | localhost | | `tv/status.json` |
+| `POST /api/tv/unpair` (204) | localhost | `tv/unpair_request.json` | |
+| `POST /api/tv/text-input` (204) | localhost | `tv/text_input_request.json` | |
 | `POST /api/remote/pair` | aucune | `pairing/request.json` | `pairing/response.json` |
+| `POST /api/remote/input` (204) | Bearer | `remote/input_request.json` | |
+| `POST /api/remote/text` (204) | Bearer | `remote/text_request.json` | |
+| `POST /api/remote/shortcut` (204) | Bearer | `remote/shortcut_request.json` | |
 | `GET /api/profiles` | Bearer | | `profiles/list.json` |
 | `POST /api/profiles` (201) | Bearer | `profiles/create_request.json` | `profiles/create_response.json` |
 | `GET /api/profiles/{id}` | Bearer | | `profiles/get_response.json` |
 | `PATCH /api/profiles/{id}` | Bearer | `profiles/update_request.json` | `profiles/update_response.json` |
+| `DELETE /api/profiles/{id}` (204) | Bearer | | |
 | `GET /api/session` | Bearer | | `session/current.json` |
+| `DELETE /api/session` (204) | Bearer | | |
 | `POST /api/session/profile` | Bearer | `session/select_request.json` | `session/select_response.json` |
+| `DELETE /api/session/profile` (204) | Bearer | | |
 | `GET /api/media` | Bearer + profil choisi | | `media/list.json` |
 | `GET /api/media/{id}` | Bearer + profil choisi | | `media/get_response.json` |
 | `PUT` / `DELETE /api/media/{id}/favorite` (204) | Bearer + profil choisi | | |
@@ -51,7 +59,17 @@ décrites dans `docs/dev/protocol.md`.
 
 ## Règles que les fixtures ne peuvent pas montrer
 
-**`tv/status`** : `phase` vaut `pairing` (code affiché), `paired` (téléphone appairé, profil pas encore choisi) ou `ready` (profil actif). `pairing` est rempli seulement en phase `pairing`, sinon `null`. `device` reste `null` jusqu'à l'appairage. `active_profile` reste `null` jusqu'au choix du profil.
+**`tv/status`** : `phase` vaut `pairing` (code affiché), `paired` (téléphone appairé, profil pas encore choisi) ou `ready` (profil actif). `pairing` est rempli seulement en phase `pairing`, sinon `null`. `device` reste `null` jusqu'à l'appairage. `active_profile` reste `null` jusqu'au choix du profil. Une session TV sans téléphone appairé est toujours en phase `pairing`, même si un profil est resté actif. `POST /api/tv/connect` (la TV démarre ou revient à l'appairage) déconnecte les téléphones encore appairés et oublie le profil actif : il faut appairer de nouveau, comme le téléphone le fait à chaque lancement.
+
+**Touches de la télécommande** : `POST /api/remote/input` avec `key` = `up`, `down`, `left`, `right`, `ok`, `back`, `home`, `menu`, `info` ou `play_pause`. Le cœur relaie la touche à la TV sur le WebSocket `GET /api/ws` : `{"type": "input", "data": {"key": "up"}}`. La TV la traite comme une touche du clavier.
+
+**Clavier et raccourcis de la télécommande** (même chemin, par le WebSocket) :
+- `POST /api/remote/text` `{"value", "done"}` → la TV reçoit `{"type": "remote.text", "data": {"text", "done"}}` et écrit dans le champ qui a le focus (`done` : validé, comme Entrée). 1000 caractères au plus.
+- `POST /api/remote/shortcut` `{"shortcut": "profile"}`, `{"shortcut": "switch_profile"}` ou `{"shortcut": "language", "language": "fr" | "en"}` → la TV reçoit `remote.shortcut`. `switch_profile` ramène la TV à « Qui regarde ? » (profil actif oublié) : le nouveau compte se choisit sur la TV, jamais sur le téléphone seul (pas de désynchronisation). Le téléphone suit le profil avec l'événement `profile.changed`.
+- `POST /api/tv/text-input` (app TV) : le champ qui a le focus (`{"active": false}` quand il n'y en a plus) → les téléphones reçoivent `{"type": "text_input", "data": {...}}` et ouvrent leur clavier. Un téléphone qui ouvre son WebSocket pendant qu'un champ a le focus le reçoit tout de suite.
+- Le téléphone écoute `GET /api/ws` avec son jeton. Si son jeton est révoqué (la TV l'a désappairé), le serveur envoie aussitôt `{"type": "error", "data": {"code": "unauthorized"}}` puis ferme la connexion.
+
+**Désappairage** : « Appairage » sur la TV (`POST /api/tv/unpair`) ou sur le téléphone (`DELETE /api/session`) révoque le jeton du téléphone, oublie le profil actif et remet la TV en phase `pairing` (un nouveau `tv/status` part sur le flux de la TV). Le téléphone reçoit ensuite `unauthorized` et revient à son écran de connexion.
 
 **Profil** (`profile` dans les réponses) : `kind` vaut `account` ou `guest`. Un invité a `id: null`, `icon: null`, `age: 0` et `is_restricted: true`. Il n'existe pas en base.
 
@@ -60,6 +78,10 @@ décrites dans `docs/dev/protocol.md`.
 **`GET /api/profiles`** : renvoie tout ce qu'il faut pour la page des comptes (invité, droit de créer, liste des comptes).
 
 **`profiles/update_request`** : mêmes champs que la création. `pin` est obligatoire quand on touche à la restriction d'âge (`age` ou `is_restricted`) ; le serveur répond `pin_required` ou `pin_invalid` sinon. Un invité ne peut modifier aucun compte.
+
+**Supprimer un compte** (`DELETE /api/profiles/{id}`, possible depuis « Qui regarde ? », sans profil choisi) : pas de PIN, le media center est local. Les favoris, la liste « À regarder » et la reprise de ce compte sont perdus ; les fichiers ne sont pas touchés.
+
+**Créer un compte** (`POST /api/profiles`) : libre depuis « Qui regarde ? » (aucun profil choisi). Un compte restreint connecté ne peut pas créer de compte non restreint (`admin_required`) ; un invité ne peut rien créer (`guest_forbidden`). Revenir à « Qui regarde ? » oublie le profil actif (`DELETE /api/session/profile`).
 
 **`session/select_request`** :
 - `{"type": "guest"}` : ni `profile_id`, ni `pin`

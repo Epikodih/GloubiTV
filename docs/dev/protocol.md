@@ -44,7 +44,8 @@ média masqué répond `404 media_not_found` (on ne révèle pas qu'il existe).
 | `GET /api/health` | public | `health/ok.json` ; `503 {"status": "starting"}` tant que la base n'est pas prête |
 | `POST /api/tv/connect` | local | `201` `tv/connect_response.json` : session TV, code à 6 chiffres, QR |
 | `POST /api/tv/pairing/refresh` | local | nouveau code ; `404 tv_session_not_found` après un redémarrage du serveur |
-| `GET /api/tv/status?tv_session_id=` | local | `tv/status.json` : `phase` = `pairing` → `paired` → `ready` |
+| `GET /api/tv/status?tv_session_id=` | local | `tv/status.json` : `phase` = `pairing` → `paired` → `ready` (toujours `pairing` sans téléphone appairé) |
+| `POST /api/tv/unpair` | local | `{"tv_session_id"}` → `204` : révoque le téléphone appairé, oublie le profil actif, retour à `pairing` |
 | `GET /api/tv/events?tv_session_id=` | local | flux SSE : un `tv/status` à l'ouverture puis à chaque changement |
 | `POST /api/remote/pair` | public | `pairing/response.json` : jeton (30 jours) |
 
@@ -156,6 +157,9 @@ Permissions : `network`, `library.read`, `library.write`, `playback.control`,
 | `player.command` | instruction pour l'app TV (`load`, `play`, `pause`, `seek`, `volume`...) |
 | `queue.changed` | file modifiée |
 | `input` | touche de la télécommande (pour l'app TV) |
+| `remote.text`, `remote.shortcut` | texte tapé et raccourci (profil, langue) de la télécommande (pour l'app TV) |
+| `text_input` | champ texte qui a le focus sur la TV (pour la télécommande, qui ouvre son clavier) |
+| `device.revoked` | un téléphone a été désappairé ; son propre WebSocket reçoit `unauthorized` et se ferme aussitôt |
 | `profile.changed`, `preferences.changed` | profil actif ou préférences (thème à chaud) |
 | `pairing.completed` | un téléphone vient d'être appairé |
 | `library.updated`, `source.status` | fin de scan, source en ligne / hors ligne |

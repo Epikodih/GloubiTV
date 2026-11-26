@@ -96,6 +96,25 @@
 
     "pinTitle": "PIN required",
   "pinSubtitle": "Enter the PIN to change the age restriction.",
+  "newPinTitle": "Choose a PIN",
+  "newPinSubtitle": "It protects this account's parental controls.",
+  "confirmPinTitle": "Confirm the PIN",
+  "confirmPinSubtitle": "Type the same PIN again.",
+  "pinMismatch": "The two PINs do not match.",
+  "editAccounts": "Edit",
+  "editDone": "Done",
+  "manageAccounts": "Manage accounts",
+  "chooseAccountToDelete": "Choose the account to delete.",
+  "deleteAccount": "Delete",
+  "deleteAccountSemantics": "Delete {name}'s account",
+  "@deleteAccountSemantics": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "deleteAccountTitle": "Delete {name}'s account?",
+  "@deleteAccountTitle": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "deleteAccountBody": "Their favorites, watchlist and resume points will be lost. Files are not touched.",
   "pinWrong": "Incorrect PIN.",
   "pinDigitSemantics": "Digit {digit}",
   "@pinDigitSemantics": {

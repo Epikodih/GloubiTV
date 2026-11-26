@@ -96,6 +96,25 @@
 
     "pinTitle": "Code PIN requis",
   "pinSubtitle": "Entrez le code PIN pour modifier la restriction d’âge.",
+  "newPinTitle": "Choisis un code PIN",
+  "newPinSubtitle": "Il protège le contrôle parental de ce compte.",
+  "confirmPinTitle": "Confirme le code PIN",
+  "confirmPinSubtitle": "Tape le même code une seconde fois.",
+  "pinMismatch": "Les deux codes ne correspondent pas.",
+  "editAccounts": "Modifier",
+  "editDone": "Terminé",
+  "manageAccounts": "Gérer les comptes",
+  "chooseAccountToDelete": "Choisis le compte à supprimer.",
+  "deleteAccount": "Supprimer",
+  "deleteAccountSemantics": "Supprimer le compte de {name}",
+  "@deleteAccountSemantics": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "deleteAccountTitle": "Supprimer le compte de {name} ?",
+  "@deleteAccountTitle": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "deleteAccountBody": "Ses favoris, sa liste « À regarder » et sa reprise de lecture seront perdus. Les fichiers ne sont pas touchés.",
   "pinWrong": "Code PIN incorrect.",
   "pinDigitSemantics": "Chiffre {digit}",
   "@pinDigitSemantics": {

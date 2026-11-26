@@ -78,6 +78,44 @@
     },
     {
       "method": "POST",
+      "path": "/api/tv/unpair",
+      "auth": "localhost",
+      "status": 204,
+      "request": "tv/unpair_request.json",
+      "errors": [
+        {
+          "status": 404,
+          "code": "tv_session_not_found"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        },
+        {
+          "status": 403,
+          "code": "localhost_only"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/tv/text-input",
+      "auth": "localhost",
+      "status": 204,
+      "request": "tv/text_input_request.json",
+      "errors": [
+        {
+          "status": 403,
+          "code": "localhost_only"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
+      "method": "POST",
       "path": "/api/remote/pair",
       "auth": "none",
       "status": 200,
@@ -95,6 +133,57 @@
         {
           "status": 429,
           "code": "pairing_too_many_attempts"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/remote/input",
+      "auth": "bearer",
+      "status": 204,
+      "request": "remote/input_request.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/remote/text",
+      "auth": "bearer",
+      "status": 204,
+      "request": "remote/text_request.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/remote/shortcut",
+      "auth": "bearer",
+      "status": 204,
+      "request": "remote/shortcut_request.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 422,
+          "code": "validation_failed"
         }
       ]
     },
@@ -205,11 +294,39 @@
       ]
     },
     {
+      "method": "DELETE",
+      "path": "/api/profiles/{id}",
+      "auth": "bearer (ou TV locale)",
+      "status": 204,
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        },
+        {
+          "status": 404,
+          "code": "profile_not_found"
+        }
+      ]
+    },
+    {
       "method": "GET",
       "path": "/api/session",
       "auth": "bearer",
       "status": 200,
       "response": "session/current.json",
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/session",
+      "auth": "bearer",
+      "status": 204,
       "errors": [
         {
           "status": 401,
@@ -244,6 +361,18 @@
         {
           "status": 429,
           "code": "pin_locked"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/session/profile",
+      "auth": "bearer (ou TV locale)",
+      "status": 204,
+      "errors": [
+        {
+          "status": 401,
+          "code": "unauthorized"
         }
       ]
     },

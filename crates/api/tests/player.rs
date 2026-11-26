@@ -335,6 +335,128 @@ async fn envoyer_vers_la_tele_et_touches() {
 }
 
 #[tokio::test]
+async fn clavier_et_raccourcis_de_la_telecommande() {
+    use epikodi_domain::protocol::RemoteShortcut;
+    let app = TestApp::new();
+    let r = app.pair().await;
+    let mut events = app.state.events.subscribe();
+
+    let (s, _) = app
+        .post("/api/remote/text", fixture("remote/text_request.json"), &r)
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, _) = app
+        .post(
+            "/api/remote/shortcut",
+            fixture("remote/shortcut_request.json"),
+            &r,
+        )
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, _) = app
+        .post("/api/remote/shortcut", json!({"shortcut": "profile"}), &r)
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, _) = app
+        .post(
+            "/api/remote/shortcut",
+            json!({"shortcut": "switch_profile"}),
+            &r,
+        )
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+
+    let mut got = vec![];
+    while let Ok(e) = events.try_recv() {
+        match e {
+            Event::RemoteText { .. } | Event::RemoteShortcut { .. } => got.push(e),
+            _ => {}
+        }
+    }
+    assert_eq!(
+        got,
+        [
+            Event::RemoteText {
+                text: "Léa".into(),
+                done: false
+            },
+            Event::RemoteShortcut {
+                shortcut: RemoteShortcut::Language,
+                language: Some("en".into())
+            },
+            Event::RemoteShortcut {
+                shortcut: RemoteShortcut::Profile,
+                language: None
+            },
+            Event::RemoteShortcut {
+                shortcut: RemoteShortcut::SwitchProfile,
+                language: None
+            },
+        ]
+    );
+    // Format sur le WebSocket : ce que l'app TV lit.
+    assert_eq!(
+        serde_json::to_value(&got[0]).unwrap(),
+        json!({"type": "remote.text", "data": {"text": "Léa", "done": false}})
+    );
+    assert_eq!(
+        serde_json::to_value(&got[1]).unwrap(),
+        json!({"type": "remote.shortcut", "data": {"shortcut": "language", "language": "en"}})
+    );
+
+    // Langue inconnue, texte trop long, sans jeton : refusés.
+    let (s, b) = app
+        .post(
+            "/api/remote/shortcut",
+            json!({"shortcut": "language", "language": "de"}),
+            &r,
+        )
+        .await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(b["error"]["code"], "validation_failed");
+    let (s, _) = app
+        .post("/api/remote/text", json!({"value": "x".repeat(1001)}), &r)
+        .await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY);
+    let (s, _) = app
+        .post("/api/remote/text", json!({"value": "a"}), &Who::Stranger)
+        .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+
+    // Champ texte de la TV : relayé aux téléphones, gardé tant qu'il est actif.
+    let (s, _) = app
+        .post(
+            "/api/tv/text-input",
+            fixture("tv/text_input_request.json"),
+            &Who::Tv,
+        )
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let field = loop {
+        if let Event::TextInput(f) = events.try_recv().unwrap() {
+            break f;
+        }
+    };
+    assert!(field.active);
+    assert_eq!(field.label.as_deref(), Some("Nom"));
+    assert_eq!(
+        serde_json::to_value(Event::TextInput(field.clone())).unwrap()["type"],
+        "text_input"
+    );
+    assert!(app.state.text_input.lock().unwrap().is_some());
+    let (s, _) = app
+        .post("/api/tv/text-input", json!({"active": false}), &Who::Tv)
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    assert!(app.state.text_input.lock().unwrap().is_none());
+    // Réservé à la TV.
+    let (s, _) = app
+        .post("/api/tv/text-input", json!({"active": false}), &r)
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn flux_sse_de_la_tv() {
     use http_body_util::BodyExt;
     use tower::ServiceExt;

@@ -40,7 +40,7 @@
   "qrNoCode": "QR code read. Now type the 6-digit code shown under the QR.",
   "connectingServer": "Connecting to the server…",
   "serverOfflineTitle": "Server unreachable",
-  "serverOfflineBody": "Cannot reach the server at {address}. Check the address and that the phone is on the same Wi-Fi.",
+  "serverOfflineBody": "Cannot reach the server at {address}. Scan the QR code shown on the TV (it has the right address) or check the address and the Wi-Fi.",
   "changeAddress": "Change the address",
   "typeCodeInstead": "Type the code",
   "profile": "Profile",
@@ -56,16 +56,6 @@
   "keyOk": "OK",
   "keyBack": "Back",
   "keyHome": "Home",
-  "whoIsWatching": "Who's watching?",
-  "currentProfile": "Current profile",
-  "profileLocked": "Protected by a PIN",
-  "pinTitle": "PIN for {name}",
-  "pinSemantics": "4-digit PIN",
-  "pinInvalid": "Wrong PIN. {count, plural, =1{1 try} other{{count} tries}} left.",
-  "pinInvalidNoCount": "Wrong PIN.",
-  "pinLocked": "Too many tries. Try again in {seconds} s.",
-  "pinLockedNoDelay": "Too many tries. Try again later.",
-  "profilesError": "Could not load the accounts.",
   "pairingConfirmTitle": "Back to pairing?",
   "pairingConfirmBody": "The TV goes back to its pairing screen and this phone disconnects from it. You will need to scan the QR code or type the code again.",
   "confirm": "Continue",
@@ -80,5 +70,11 @@
   "keyboardTitle": "Type on the TV",
   "keyboardDone": "Done",
   "keyboardClose": "Close the keyboard",
-  "languageToggle": "Language: switch the TV and the phone to {language}"
+  "languageToggle": "Language: switch the TV and the phone to {language}",
+  "pinPadTitle": "PIN",
+  "pinPadProgress": "{count} of {total} digits entered",
+  "@pinPadProgress": {
+    "placeholders": { "count": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "pinPadErase": "Delete"
 }

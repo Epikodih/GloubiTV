@@ -84,7 +84,8 @@ class _DPadState extends State<DPad> {
           gradient: AppBrand.gradient,
           borderRadius: BorderRadius.circular(s * 0.16),
           boxShadow: const [
-            BoxShadow(color: Colors.black45, blurRadius: 28, offset: Offset(0, 12)),
+            BoxShadow(
+                color: Colors.black45, blurRadius: 28, offset: Offset(0, 12)),
           ],
         ),
         child: ClipRRect(
@@ -93,15 +94,32 @@ class _DPadState extends State<DPad> {
             children: [
               Positioned.fill(
                 child: CustomPaint(
-                  painter: _PadPainter(okFraction: DPad.okFraction, pressed: _pressed),
+                  painter: _PadPainter(
+                      okFraction: DPad.okFraction, pressed: _pressed),
                 ),
               ),
               // Flèches des secteurs.
               for (final (key, icon, align) in const [
-                (TvKey.up, Icons.keyboard_arrow_up_rounded, Alignment(0, -0.78)),
-                (TvKey.down, Icons.keyboard_arrow_down_rounded, Alignment(0, 0.78)),
-                (TvKey.left, Icons.keyboard_arrow_left_rounded, Alignment(-0.78, 0)),
-                (TvKey.right, Icons.keyboard_arrow_right_rounded, Alignment(0.78, 0)),
+                (
+                  TvKey.up,
+                  Icons.keyboard_arrow_up_rounded,
+                  Alignment(0, -0.78)
+                ),
+                (
+                  TvKey.down,
+                  Icons.keyboard_arrow_down_rounded,
+                  Alignment(0, 0.78)
+                ),
+                (
+                  TvKey.left,
+                  Icons.keyboard_arrow_left_rounded,
+                  Alignment(-0.78, 0)
+                ),
+                (
+                  TvKey.right,
+                  Icons.keyboard_arrow_right_rounded,
+                  Alignment(0.78, 0)
+                ),
               ])
                 Align(
                   alignment: align,
@@ -109,12 +127,14 @@ class _DPadState extends State<DPad> {
                     child: Icon(
                       icon,
                       size: s * 0.15,
-                      color: _pressed == key ? Colors.white : AppColors.textMuted,
+                      color:
+                          _pressed == key ? Colors.white : AppColors.textMuted,
                     ),
                   ),
                 ),
               zone(TvKey.up, l10n.keyUp, Rect.fromLTWH(0, 0, s, band)),
-              zone(TvKey.down, l10n.keyDown, Rect.fromLTWH(0, s - band, s, band)),
+              zone(TvKey.down, l10n.keyDown,
+                  Rect.fromLTWH(0, s - band, s, band)),
               zone(TvKey.left, l10n.keyLeft, Rect.fromLTWH(0, band, band, ok)),
               zone(TvKey.right, l10n.keyRight,
                   Rect.fromLTWH(s - band, band, band, ok)),
@@ -160,9 +180,24 @@ class _PadPainter extends CustomPainter {
     final inner = Rect.fromCenter(center: c, width: half * 2, height: half * 2);
     final corners = {
       TvKey.up: [rect.topLeft, rect.topRight, inner.topRight, inner.topLeft],
-      TvKey.right: [rect.topRight, rect.bottomRight, inner.bottomRight, inner.topRight],
-      TvKey.down: [rect.bottomRight, rect.bottomLeft, inner.bottomLeft, inner.bottomRight],
-      TvKey.left: [rect.bottomLeft, rect.topLeft, inner.topLeft, inner.bottomLeft],
+      TvKey.right: [
+        rect.topRight,
+        rect.bottomRight,
+        inner.bottomRight,
+        inner.topRight
+      ],
+      TvKey.down: [
+        rect.bottomRight,
+        rect.bottomLeft,
+        inner.bottomLeft,
+        inner.bottomRight
+      ],
+      TvKey.left: [
+        rect.bottomLeft,
+        rect.topLeft,
+        inner.topLeft,
+        inner.bottomLeft
+      ],
     };
 
     final p = pressed;
@@ -197,7 +232,8 @@ class _PadPainter extends CustomPainter {
 }
 
 class _OkButton extends StatelessWidget {
-  const _OkButton({required this.size, required this.label, required this.onTap});
+  const _OkButton(
+      {required this.size, required this.label, required this.onTap});
 
   final double size;
   final String label;
@@ -215,7 +251,8 @@ class _OkButton extends StatelessWidget {
           gradient: AppBrand.gradient,
           borderRadius: radius,
           boxShadow: const [
-            BoxShadow(color: AppBrand.glow, blurRadius: 24, offset: Offset(0, 6)),
+            BoxShadow(
+                color: AppBrand.glow, blurRadius: 24, offset: Offset(0, 6)),
           ],
         ),
         child: Material(
@@ -251,6 +288,9 @@ class _OkButton extends StatelessWidget {
 class NavKeys extends StatelessWidget {
   const NavKeys({super.key, required this.onKey});
 
+  /// Hauteur de la barre : grande cible au pouce.
+  static const height = 68.0;
+
   final ValueChanged<TvKey> onKey;
 
   @override
@@ -268,30 +308,34 @@ class NavKeys extends StatelessWidget {
                 HapticFeedback.selectionClick();
                 onKey(key);
               },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 22, color: AppColors.text),
-                  const SizedBox(width: AppSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      label,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.text,
+              // Toute la moitié de la barre est cliquable, pas seulement
+              // l'icône et le texte.
+              child: SizedBox.expand(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 22, color: AppColors.text),
+                    const SizedBox(width: AppSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         );
 
     return Container(
-      height: 58,
+      height: height,
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         gradient: AppBrand.gradient,

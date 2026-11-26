@@ -1,0 +1,9 @@
+{
+  "active": true,
+  "id": 1,
+  "label": "Nom",
+  "value": "",
+  "obscure": false,
+  "keyboard": "text",
+  "max_length": 20
+}

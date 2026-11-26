@@ -183,6 +183,169 @@ async fn appairage_complet_et_phases_de_la_tv() {
     assert_eq!(st["active_profile"]["kind"], "guest");
 }
 
+/// Appaire un téléphone sur une nouvelle session TV et choisit l'invité :
+/// la TV est en `ready`. Renvoie (session TV, jeton du téléphone).
+async fn tv_prete(app: &TestApp) -> (String, Who) {
+    let (sid, code) = app.tv_connect().await;
+    let mut req = fixture("pairing/request.json");
+    req["code"] = json!(code);
+    let (s, b) = app.post("/api/remote/pair", req, &Who::Stranger).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let token = Who::Remote(b["token"].as_str().unwrap().into());
+    let (s, _) = app
+        .post("/api/session/profile", json!({"type": "guest"}), &token)
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    let (_, st) = app
+        .get(&format!("/api/tv/status?tv_session_id={sid}"), &Who::Tv)
+        .await;
+    assert_eq!(st["phase"], "ready");
+    (sid, token)
+}
+
+#[tokio::test]
+async fn appairage_depuis_la_tv_desappaire_le_telephone() {
+    let app = TestApp::new();
+    let (sid, token) = tv_prete(&app).await;
+
+    let mut events = app.state.events.subscribe();
+    let (s, _) = app
+        .post("/api/tv/unpair", json!({"tv_session_id": sid}), &Who::Tv)
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    // Le WebSocket du téléphone est prévenu tout de suite.
+    let mut revoked = false;
+    while let Ok(e) = events.try_recv() {
+        if matches!(e, epikodi_domain::protocol::Event::DeviceRevoked { .. }) {
+            revoked = true;
+        }
+    }
+    assert!(revoked, "device.revoked émis");
+
+    // La TV réaffiche un code, le profil actif est oublié.
+    let (_, st) = app
+        .get(&format!("/api/tv/status?tv_session_id={sid}"), &Who::Tv)
+        .await;
+    assert_eq!(st["phase"], "pairing");
+    assert!(st["device"].is_null());
+    assert!(st["active_profile"].is_null());
+
+    // Le téléphone n'est plus autorisé : il revient à sa connexion.
+    let (s, b) = app.get("/api/session", &token).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    assert_eq!(b["error"]["code"], "unauthorized");
+
+    // Sans téléphone appairé : rien à révoquer, 204 quand même.
+    let (s, _) = app
+        .post("/api/tv/unpair", json!({"tv_session_id": sid}), &Who::Tv)
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn desappairage_tv_session_inconnue_et_reserve_a_la_tv() {
+    let app = TestApp::new();
+    let (s, b) = app
+        .post(
+            "/api/tv/unpair",
+            json!({"tv_session_id": "inconnue"}),
+            &Who::Tv,
+        )
+        .await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert_eq!(b["error"]["code"], "tv_session_not_found");
+
+    let (sid, token) = tv_prete(&app).await;
+    let (s, b) = app
+        .post("/api/tv/unpair", json!({"tv_session_id": sid}), &token)
+        .await;
+    assert_eq!(
+        s,
+        StatusCode::FORBIDDEN,
+        "un téléphone ne peut pas l'appeler"
+    );
+    assert_eq!(b["error"]["code"], "localhost_only");
+}
+
+#[tokio::test]
+async fn appairage_depuis_le_telephone_ramene_la_tv_au_code() {
+    let app = TestApp::new();
+    let (sid, token) = tv_prete(&app).await;
+
+    let (s, _) = app.delete("/api/session", &token).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+
+    let (_, st) = app
+        .get(&format!("/api/tv/status?tv_session_id={sid}"), &Who::Tv)
+        .await;
+    assert_eq!(st["phase"], "pairing", "plus de téléphone appairé");
+    assert!(st["active_profile"].is_null(), "profil oublié");
+}
+
+#[tokio::test]
+async fn apres_desappairage_une_nouvelle_session_tv_affiche_le_code() {
+    let app = TestApp::new();
+    let (old, _token) = tv_prete(&app).await;
+
+    // Le bug : « Appairage » sur la TV refaisait seulement un connect, qui
+    // reprenait le téléphone et le profil, et la TV sautait aux comptes.
+    // Désappairée d'abord, la nouvelle session affiche bien un code.
+    let (s, _) = app
+        .post("/api/tv/unpair", json!({"tv_session_id": old}), &Who::Tv)
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (sid, code) = app.tv_connect().await;
+    let (_, st) = app
+        .get(&format!("/api/tv/status?tv_session_id={sid}"), &Who::Tv)
+        .await;
+    assert_eq!(st["phase"], "pairing");
+    assert_eq!(st["pairing"]["code"], code.as_str());
+}
+
+#[tokio::test]
+async fn redemarrage_de_la_tv_il_faut_appairer_de_nouveau() {
+    // La TV est fermée puis relancée (nouveau connect) : même avec le
+    // serveur allumé, elle n'est plus appairée et affiche un code.
+    let app = TestApp::new();
+    let (_old, token) = tv_prete(&app).await;
+    let mut events = app.state.events.subscribe();
+
+    let (sid, code) = app.tv_connect().await;
+    let (_, st) = app
+        .get(&format!("/api/tv/status?tv_session_id={sid}"), &Who::Tv)
+        .await;
+    assert_eq!(st["phase"], "pairing");
+    assert_eq!(st["pairing"]["code"], code.as_str());
+    assert!(st["device"].is_null());
+    assert!(st["active_profile"].is_null(), "profil oublié");
+
+    // L'ancien téléphone est déconnecté tout de suite (WebSocket prévenu)…
+    let mut revoked = false;
+    while let Ok(e) = events.try_recv() {
+        if matches!(e, epikodi_domain::protocol::Event::DeviceRevoked { .. }) {
+            revoked = true;
+        }
+    }
+    assert!(revoked, "device.revoked émis");
+    // … et ne peut pas se « reconnecter » à la nouvelle session.
+    let (s, _) = app.get("/api/session", &token).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    let (_, st) = app
+        .get(&format!("/api/tv/status?tv_session_id={sid}"), &Who::Tv)
+        .await;
+    assert_eq!(st["phase"], "pairing", "toujours le code");
+
+    // Nouvel appairage avec le code : la TV avance normalement.
+    let mut req = fixture("pairing/request.json");
+    req["code"] = json!(code);
+    let (s, _) = app.post("/api/remote/pair", req, &Who::Stranger).await;
+    assert_eq!(s, StatusCode::OK);
+    let (_, st) = app
+        .get(&format!("/api/tv/status?tv_session_id={sid}"), &Who::Tv)
+        .await;
+    assert_eq!(st["phase"], "paired");
+}
+
 #[tokio::test]
 async fn code_faux_puis_trop_de_tentatives() {
     let app = TestApp::new();

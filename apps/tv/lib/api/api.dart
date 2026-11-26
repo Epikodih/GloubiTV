@@ -59,6 +59,7 @@ class Api {
     required String language,
     required int age,
     required bool isRestricted,
+    String? pin,
   }) async {
     final json = await _client.post('/api/profiles', body: {
       'name': name,
@@ -66,6 +67,8 @@ class Api {
       'language': language,
       'age': age,
       'is_restricted': isRestricted,
+      // Obligatoire pour un compte non restreint (create_request.json).
+      if (pin != null) 'pin': pin,
     });
     return _activeProfile(json);
   }
@@ -93,6 +96,23 @@ class Api {
       if (pin != null) 'pin': pin,
     });
     return _activeProfile(json);
+  }
+
+  /// Supprime un compte (`DELETE /api/profiles/{id}`), sans PIN : le media
+  /// center est local. Lève [ApiException] (`profile_not_found`…).
+  Future<void> deleteProfile(Object id) async {
+    await _client.delete('/api/profiles/$id');
+  }
+
+  /// Retour à « Qui regarde ? » : plus de profil actif
+  /// (`DELETE /api/session/profile`). Une erreur est ignorée : au pire,
+  /// l'ancien profil reste actif jusqu'au prochain choix.
+  Future<void> clearProfile() async {
+    try {
+      await _client.delete('/api/session/profile');
+    } on ApiException {
+      // serveur injoignable : sans conséquence ici
+    }
   }
 
   // ------------------------------------------------------------ médiathèque

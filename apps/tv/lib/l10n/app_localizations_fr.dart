@@ -199,6 +199,50 @@ class AppLocalizationsFr extends AppLocalizations {
       'Entrez le code PIN pour modifier la restriction d’âge.';
 
   @override
+  String get newPinTitle => 'Choisis un code PIN';
+
+  @override
+  String get newPinSubtitle => 'Il protège le contrôle parental de ce compte.';
+
+  @override
+  String get confirmPinTitle => 'Confirme le code PIN';
+
+  @override
+  String get confirmPinSubtitle => 'Tape le même code une seconde fois.';
+
+  @override
+  String get pinMismatch => 'Les deux codes ne correspondent pas.';
+
+  @override
+  String get editAccounts => 'Modifier';
+
+  @override
+  String get editDone => 'Terminé';
+
+  @override
+  String get manageAccounts => 'Gérer les comptes';
+
+  @override
+  String get chooseAccountToDelete => 'Choisis le compte à supprimer.';
+
+  @override
+  String get deleteAccount => 'Supprimer';
+
+  @override
+  String deleteAccountSemantics(String name) {
+    return 'Supprimer le compte de $name';
+  }
+
+  @override
+  String deleteAccountTitle(String name) {
+    return 'Supprimer le compte de $name ?';
+  }
+
+  @override
+  String get deleteAccountBody =>
+      'Ses favoris, sa liste « À regarder » et sa reprise de lecture seront perdus. Les fichiers ne sont pas touchés.';
+
+  @override
   String get pinWrong => 'Code PIN incorrect.';
 
   @override

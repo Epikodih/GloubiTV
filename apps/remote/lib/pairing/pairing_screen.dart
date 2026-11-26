@@ -158,15 +158,20 @@ class _PairingScreenState extends State<PairingScreen> {
   /// actuel (on ne sait pas si la connexion précédente avait abouti).
   void _closeServer() => _connect();
 
-  /// Garde le nouveau serveur et s'y connecte.
-  Future<void> _useServer(PairTarget target) async {
+  /// Enregistre [target] comme serveur (pour les prochains lancements).
+  Future<void> _rememberServer(PairTarget target) async {
     final def = _defaultServer;
     final isDefault =
         def != null && def.host == target.host && def.port == target.port;
     await _deps.store
         .setServerAddress(isDefault ? null : '${target.host}:${target.port}');
-    if (!mounted) return;
     _server = PairTarget(host: target.host, port: target.port);
+  }
+
+  /// Garde le nouveau serveur et s'y connecte.
+  Future<void> _useServer(PairTarget target) async {
+    await _rememberServer(target);
+    if (!mounted) return;
     _code.clear();
     _codeError = null;
     _hint = null;
@@ -199,6 +204,15 @@ class _PairingScreenState extends State<PairingScreen> {
       _hint = null;
     });
     if (qr == null) return;
+    // Le QR donne aussi l'adresse du serveur (IP qui a changé, autre media
+    // center) : on la garde, plus besoin de la taper.
+    final server = _server;
+    if (server == null || server.host != qr.host || server.port != qr.port) {
+      await _rememberServer(qr);
+      if (!mounted) return;
+    }
+    _attempt++; // une vérification en cours ne nous ramènera pas ailleurs
+    if (_step != _Step.pair) setState(() => _step = _Step.pair);
     final code = qr.code;
     if (code != null) {
       _code.text = code;
@@ -376,6 +390,13 @@ class _PairingScreenState extends State<PairingScreen> {
           icon: Icons.refresh_rounded,
           onPressed: _connect,
         ),
+        // L'IP a changé ? Le QR de la TV contient la bonne adresse.
+        GhostButton(
+          key: const ValueKey('offline-scan'),
+          label: _l10n.scanQr,
+          icon: Icons.qr_code_scanner_rounded,
+          onPressed: _scan,
+        ),
         GhostButton(
           label: _l10n.changeAddress,
           icon: Icons.dns_rounded,
@@ -416,10 +437,10 @@ class _PairingScreenState extends State<PairingScreen> {
         const SizedBox(height: AppSpacing.md),
         PageTitle(title: _l10n.welcomeTitle, body: _l10n.welcomeBody),
         // Au-dessus des tuiles : reste visible clavier ouvert.
-        if (error != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          ErrorMessage(error),
-        ] else if (_hint != null) ...[
+        // Erreur : popup en haut de l'écran (ne prend pas de place ici).
+        if (error != null)
+          ErrorMessage(error)
+        else if (_hint != null) ...[
           const SizedBox(height: AppSpacing.md),
           Text(_hint!, style: RemoteText.body, textAlign: TextAlign.center),
         ],

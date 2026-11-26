@@ -2,7 +2,6 @@
 //! suppression. Le statut (invité, restreint, non restreint) est toujours
 //! vérifié ici, jamais déduit de ce qu'affiche l'app.
 
-use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
@@ -14,8 +13,8 @@ use epikodi_domain::profile::{
     ActiveProfile, NewProfile, Profile,
 };
 use epikodi_domain::protocol::{
-    CreateProfileRequest, CreateProfileResponse, DeleteProfileRequest, Event, GetProfileResponse,
-    ProfileResponse, ProfilesList, UpdateProfileRequest,
+    CreateProfileRequest, CreateProfileResponse, Event, GetProfileResponse, ProfileResponse,
+    ProfilesList, UpdateProfileRequest,
 };
 use epikodi_storage::secrets::hash_pin;
 
@@ -71,10 +70,14 @@ pub async fn create(
     check_language(&language)?;
     let age = check_age(req.age)?;
     check_pin_for_restriction(req.is_restricted, req.pin.as_deref())?;
-    // Un profil restreint ne peut pas se créer un compte non restreint
-    // (sinon le contrôle parental ne sert à rien).
-    let active_is_admin = ctx.profile.as_ref().is_some_and(ActiveProfile::is_admin);
-    if !req.is_restricted && !active_is_admin && any_admin_account(&state).await? {
+    // Un profil restreint connecté ne peut pas se créer un compte non
+    // restreint (sinon le contrôle parental ne sert à rien). Depuis « Qui
+    // regarde ? » (aucun profil choisi), la création est libre.
+    let active_is_restricted = ctx
+        .profile
+        .as_ref()
+        .is_some_and(|a| !a.is_guest() && !a.is_admin());
+    if !req.is_restricted && active_is_restricted {
         return Err(ApiError::admin_required());
     }
 
@@ -248,26 +251,13 @@ pub async fn update(
 
 /// `DELETE /api/profiles/{id}` (corps facultatif `{"pin": "1234"}`).
 pub async fn delete(
-    ctx: Ctx,
+    _: Ctx,
     State(state): State<AppState>,
     PathId(id): PathId,
-    body: Bytes,
 ) -> ApiResult<StatusCode> {
-    let active = ctx.profile()?;
-    if active.is_guest() {
-        return Err(ApiError::guest_forbidden());
-    }
-    let req: DeleteProfileRequest = if body.is_empty() {
-        DeleteProfileRequest::default()
-    } else {
-        serde_json::from_slice(&body).map_err(|_| ApiError::validation("body", "JSON invalide"))?
-    };
-    let target = load(&state, id).await?;
-    if target.pin_hash.is_some() {
-        check_pin(&state, &target, req.pin.as_deref()).await?;
-    } else if !active.is_admin() && active.user_id() != Some(id) {
-        return Err(ApiError::admin_required());
-    }
+    // Media center local : supprimer un compte ne demande pas de PIN
+    // (possible depuis « Qui regarde ? », sans profil choisi).
+    load(&state, id).await?; // profile_not_found
     state.db(move |s| Ok(s.delete_profile(id)?)).await?;
     if state.selection() == Selection::Account(id) {
         activate(&state, Selection::None).await?;

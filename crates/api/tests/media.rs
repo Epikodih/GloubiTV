@@ -126,6 +126,25 @@ async fn parametres_de_liste() {
     let (_, b) = app.get("/api/media?kind=episode", &r).await;
     assert_eq!(b["total"], 2);
 
+    // Plusieurs types séparés par des virgules (recherche « Séries » : la
+    // série, ses saisons et ses épisodes).
+    let (s, b) = app.get("/api/media?kind=series,season,episode", &r).await;
+    assert_eq!(s, StatusCode::OK);
+    let (_, ep) = app.get("/api/media?kind=episode", &r).await;
+    assert!(b["total"].as_i64().unwrap() > ep["total"].as_i64().unwrap());
+    let kinds: std::collections::BTreeSet<_> = b["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["kind"].as_str().unwrap().to_string())
+        .collect();
+    assert!(kinds
+        .iter()
+        .all(|k| ["series", "season", "episode"].contains(&k.as_str())));
+    let (s, b) = app.get("/api/media?kind=episode,nimporte", &r).await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(b["error"]["code"], "invalid_query");
+
     let (_, seasons) = app
         .get(&format!("/api/media?parent_id={}", d.series), &r)
         .await;

@@ -3,22 +3,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
+import '../remote/remote_keys.dart';
 import 'pill_metrics.dart';
 
 /// Demande un code PIN. Renvoie le PIN saisi, ou `null` si annulé.
 /// [errorText] : message affiché (ex. « Code PIN incorrect. » après un échec).
-Future<String?> showPinDialog(BuildContext context, {String? errorText}) {
+/// [title] / [subtitle] : par défaut, « Code PIN requis » (vérification).
+Future<String?> showPinDialog(
+  BuildContext context, {
+  String? errorText,
+  String? title,
+  String? subtitle,
+}) {
   return showDialog<String>(
     context: context,
     barrierColor: Colors.black54,
-    builder: (_) => _PinDialog(errorText: errorText),
+    builder: (_) =>
+        _PinDialog(errorText: errorText, title: title, subtitle: subtitle),
   );
 }
 
 class _PinDialog extends StatefulWidget {
-  const _PinDialog({this.errorText});
+  const _PinDialog({this.errorText, this.title, this.subtitle});
 
   final String? errorText;
+  final String? title;
+  final String? subtitle;
 
   @override
   State<_PinDialog> createState() => _PinDialogState();
@@ -27,6 +37,39 @@ class _PinDialog extends StatefulWidget {
 class _PinDialogState extends State<_PinDialog> {
   static const _length = 4;
   String _pin = '';
+
+  /// Pavé numérique sur le téléphone tant que la popup est ouverte.
+  RemotePinEntry? _remote;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_remote != null) return;
+    final l10n = AppLocalizations.of(context)!;
+    _remote = RemotePinEntry(
+      label: widget.errorText ?? widget.title ?? l10n.pinTitle,
+      length: _length,
+      onDigits: _setFromRemote,
+    );
+    // Après le build : pas de notification pendant la construction.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showRemotePin(_remote!);
+    });
+  }
+
+  @override
+  void dispose() {
+    hideRemotePin(_remote);
+    super.dispose();
+  }
+
+  /// Saisie complète envoyée par le téléphone.
+  void _setFromRemote(String digits) {
+    if (!mounted) return;
+    final pin = digits.length > _length ? digits.substring(0, _length) : digits;
+    setState(() => _pin = pin);
+    if (_pin.length == _length) Navigator.of(context).pop(_pin);
+  }
 
   void _add(String digit) {
     if (_pin.length >= _length) return;
@@ -71,13 +114,13 @@ class _PinDialogState extends State<_PinDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  l10n.pinTitle,
+                  widget.title ?? l10n.pinTitle,
                   style: AppText.headline,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  l10n.pinSubtitle,
+                  widget.subtitle ?? l10n.pinSubtitle,
                   style: AppText.body.copyWith(color: AppColors.textMuted),
                   textAlign: TextAlign.center,
                 ),

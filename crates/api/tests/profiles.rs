@@ -297,21 +297,54 @@ async fn suppression_d_un_compte() {
     let r = app.pair().await;
     let marc = app.create_profile(&r, "Marc", 35, false).await;
     let (s, _) = app.delete(&format!("/api/profiles/{marc}"), &r).await;
-    assert_eq!(s, StatusCode::FORBIDDEN, "PIN obligatoire");
-    let (s, _) = app
-        .call(
-            axum::http::Method::DELETE,
-            &format!("/api/profiles/{marc}"),
-            Some(json!({"pin": "1234"})),
-            &r,
-        )
-        .await;
-    assert_eq!(s, StatusCode::NO_CONTENT);
+    assert_eq!(s, StatusCode::NO_CONTENT, "pas de PIN : media center local");
     let (_, cur) = app.get("/api/session", &r).await;
     assert!(
         cur["profile"].is_null(),
         "le compte actif supprimé : plus de profil"
     );
+}
+
+#[tokio::test]
+async fn suppression_depuis_qui_regarde_sans_pin() {
+    // « Qui regarde ? » : aucun profil choisi, pas de PIN demandé.
+    let app = TestApp::new();
+    let r = app.pair().await;
+    let marc = app.create_profile(&r, "Marc", 35, false).await;
+    let lea = app.create_profile(&r, "Léa", 10, true).await;
+    let (s, _) = app.delete("/api/session/profile", &r).await;
+    assert_eq!(s, StatusCode::NO_CONTENT, "plus de profil choisi");
+
+    for id in [lea, marc] {
+        let (s, _) = app.delete(&format!("/api/profiles/{id}"), &Who::Tv).await;
+        assert_eq!(s, StatusCode::NO_CONTENT);
+    }
+    let (_, list) = app.get("/api/profiles", &r).await;
+    assert!(list["profiles"].as_array().unwrap().is_empty());
+
+    let (s, b) = app.delete("/api/profiles/999", &Who::Tv).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert_eq!(b["error"]["code"], "profile_not_found");
+}
+
+#[tokio::test]
+async fn creer_un_deuxieme_adulte_depuis_qui_regarde() {
+    // Le bug : avec un adulte déjà là, créer un autre compte avec PIN depuis
+    // « Qui regarde ? » répondait admin_required.
+    let app = TestApp::new();
+    let r = app.pair().await;
+    app.create_profile(&r, "Marc", 35, false).await;
+    let (s, _) = app.delete("/api/session/profile", &r).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, b) = app
+        .post(
+            "/api/profiles",
+            json!({"name": "Julie", "age": 33, "is_restricted": false, "pin": "4321"}),
+            &Who::Tv,
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{b}");
+    assert_eq!(b["profile"]["name"], "Julie");
 }
 
 #[tokio::test]

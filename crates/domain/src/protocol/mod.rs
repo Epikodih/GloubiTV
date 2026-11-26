@@ -669,6 +669,57 @@ pub enum RemoteKey {
     PlayPause,
 }
 
+/// `POST /api/remote/text` : texte tapé sur le téléphone pour le champ qui a
+/// le focus sur la TV. `done` : validé (comme Entrée).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RemoteTextRequest {
+    pub value: String,
+    #[serde(default)]
+    pub done: bool,
+}
+
+/// Raccourcis du menu de la télécommande.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RemoteShortcut {
+    /// Ouvre la page du profil sur la TV.
+    Profile,
+    /// Ramène la TV à « Qui regarde ? » (le profil actif est oublié) : on
+    /// choisit le nouveau compte sur la TV.
+    SwitchProfile,
+    /// Change la langue de la TV (`language` : `fr` ou `en`).
+    Language,
+}
+
+/// `POST /api/remote/shortcut`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RemoteShortcutRequest {
+    pub shortcut: RemoteShortcut,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+}
+
+/// `POST /api/tv/text-input` (app TV) : champ texte qui a le focus sur la TV,
+/// pour que le téléphone ouvre son clavier. `{"active": false}` quand plus
+/// aucun champ n'a le focus.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TextInputState {
+    pub active: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub obscure: Option<bool>,
+    /// `text` ou `number`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keyboard: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_length: Option<u32>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InputRequest {
     pub key: RemoteKey,
@@ -871,6 +922,10 @@ pub enum Event {
     TvStatus(Box<TvStatus>),
     #[serde(rename = "pairing.completed")]
     PairingCompleted(DeviceSummary),
+    /// Jeton d'un appareil révoqué (désappairage) : son WebSocket reçoit
+    /// `unauthorized` et se ferme tout de suite.
+    #[serde(rename = "device.revoked")]
+    DeviceRevoked { device_id: Id },
     #[serde(rename = "profile.changed")]
     ProfileChanged { profile: Option<ProfileView> },
     #[serde(rename = "preferences.changed")]
@@ -886,6 +941,19 @@ pub enum Event {
     },
     #[serde(rename = "input")]
     Input { key: RemoteKey },
+    /// Texte tapé sur le téléphone (pour l'app TV).
+    #[serde(rename = "remote.text")]
+    RemoteText { text: String, done: bool },
+    /// Raccourci du menu de la télécommande (pour l'app TV).
+    #[serde(rename = "remote.shortcut")]
+    RemoteShortcut {
+        shortcut: RemoteShortcut,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        language: Option<String>,
+    },
+    /// Champ texte de la TV (pour la télécommande, qui ouvre son clavier).
+    #[serde(rename = "text_input")]
+    TextInput(TextInputState),
     #[serde(rename = "library.updated")]
     LibraryUpdated(ScanStatus),
     #[serde(rename = "source.status")]

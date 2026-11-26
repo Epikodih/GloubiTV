@@ -196,13 +196,29 @@ class _PairingScreenState extends State<PairingScreen> {
 
     // Le client (donc le token de la TV) est transmis à l'écran des comptes.
     final client = _client;
+    final sessionId = _sessionId;
     _handedOff = true;
 
-    // La télécommande peut ramener ici (« Appairage » sur le téléphone),
-    // quel que soit l'écran affiché : on vide toute la pile.
     final navigator = Navigator.of(context);
-    remoteBackToPairing = () {
+    TvEvents? watcher;
+    var left = false;
+
+    /// Retour à l'écran d'appairage, quel que soit l'écran affiché (on vide
+    /// toute la pile). [unpair] : « Appairage » sur la TV, qui déconnecte
+    /// d'abord le téléphone (sinon le nouveau connect le reprendrait, avec le
+    /// profil actif, et la TV sauterait de nouveau aux comptes).
+    Future<void> backToPairing({required bool unpair}) async {
+      if (left) return;
+      left = true;
       remoteBackToPairing = null;
+      watcher?.close();
+      if (unpair && sessionId != null) {
+        try {
+          await client.tv.unpair(sessionId).timeout(const Duration(seconds: 3));
+        } catch (_) {
+          // Serveur injoignable ou session oubliée : on revient quand même.
+        }
+      }
       client.close();
       navigator.pushAndRemoveUntil(
         MaterialPageRoute(
@@ -213,26 +229,41 @@ class _PairingScreenState extends State<PairingScreen> {
         ),
         (_) => false,
       );
-    };
+    }
+
+    // On garde l'écoute de la session : si le téléphone se désappaire
+    // (« Appairage » sur le téléphone), le serveur repasse en phase
+    // `pairing` et la TV revient à son code. Session oubliée (serveur
+    // redémarré) : même chose.
+    if (sessionId != null) {
+      void onWatch(Map<String, dynamic> d) {
+        if (d['phase'] == 'pairing') backToPairing(unpair: false);
+      }
+
+      void onLost() => backToPairing(unpair: false);
+      final create = widget.createEvents;
+      watcher = (create != null
+          ? create(
+              sessionId: sessionId, onEvent: onWatch, onSessionLost: onLost)
+          : TvEvents(
+              baseUrl: serverUrl,
+              sessionId: sessionId,
+              onEvent: onWatch,
+              onSessionLost: onLost,
+            ))
+        ..start();
+    }
+
+    // Raccourci « Appairage » du faux serveur (`test_api.py`).
+    remoteBackToPairing = () => backToPairing(unpair: false);
 
     navigator.pushReplacement(
       MaterialPageRoute(
         builder: (ctx) => AccountsFlow(
           api: Api(client.http),
           data: data,
-          // Retour à l'appairage : on ferme ce client, la nouvelle
-          // PairingScreen en crée un autre (nouveau connect).
-          onBackToPairing: () {
-            client.close();
-            Navigator.of(ctx).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => PairingScreen(
-                  createClient: widget.createClient,
-                  createEvents: widget.createEvents,
-                ),
-              ),
-            );
-          },
+          // « Appairage » sur la TV (comptes ou menu du profil).
+          onBackToPairing: () => backToPairing(unpair: true),
         ),
       ),
     );

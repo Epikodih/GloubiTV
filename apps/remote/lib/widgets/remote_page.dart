@@ -152,33 +152,32 @@ class PageTitle extends StatelessWidget {
   }
 }
 
-/// Message d'erreur (icône + texte, pas seulement la couleur).
-class ErrorMessage extends StatelessWidget {
+/// Message d'erreur : affiché en popup en haut de l'écran, qui disparaît
+/// toute seule après quelques secondes (`showErrorToast` du design system).
+/// Ne prend aucune place dans la page. Une nouvelle popup part quand le
+/// message change.
+class ErrorMessage extends StatefulWidget {
   const ErrorMessage(this.text, {super.key});
 
   final String text;
 
   @override
+  State<ErrorMessage> createState() => _ErrorMessageState();
+}
+
+class _ErrorMessageState extends State<ErrorMessage> {
+  final _toast = ErrorToastTrigger();
+
+  /// L'erreur a disparu de la page (nouvelle tentative) : sa popup se ferme.
+  @override
+  void dispose() {
+    _toast.clear();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm - 4),
-        decoration: BoxDecoration(
-          color: AppColors.error.withAlpha(28),
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.error.withAlpha(90)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.error_outline_rounded,
-                color: AppColors.error, size: 22),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(child: Text(text, style: RemoteText.body)),
-          ],
-        ),
-      ),
-    );
+    _toast.update(context, widget.text);
+    return const SizedBox.shrink();
   }
 }

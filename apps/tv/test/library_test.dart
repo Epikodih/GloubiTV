@@ -146,10 +146,9 @@ void main() {
         (tester) async {
       await pumpLibrary(tester);
       final menu = tester.getRect(find.byType(LibrarySidebar));
-      // Dernière entrée : Paramètres (compte sans restriction).
-      final last = tester.getRect(find.byKey(const ValueKey('nav-settings')));
-      expect(last.top,
-          greaterThan(tester.getRect(nav(LibrarySidebar.sections.last)).top));
+      final last = tester.getRect(nav(LibrarySidebar.sections.last));
+      // Les paramètres sont dans le menu du profil, pas dans celui-ci.
+      expect(find.byKey(const ValueKey('nav-settings')), findsNothing);
       expect(menu.bottom - last.bottom, lessThan(40));
       expect(menu.bottom, lessThan(900), reason: 'ne va pas jusqu\'en bas');
     });

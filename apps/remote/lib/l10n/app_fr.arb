@@ -96,7 +96,7 @@
   "qrNoCode": "QR code lu. Tape maintenant le code à 6 chiffres affiché sous le QR.",
   "connectingServer": "Connexion au serveur…",
   "serverOfflineTitle": "Serveur injoignable",
-  "serverOfflineBody": "Impossible de joindre le serveur à l'adresse {address}. Vérifie l'adresse et que le téléphone est sur le même Wi-Fi.",
+  "serverOfflineBody": "Impossible de joindre le serveur à l'adresse {address}. Scanne le QR affiché sur la TV (il contient la bonne adresse) ou vérifie l'adresse et le Wi-Fi.",
   "@serverOfflineBody": {
     "placeholders": {
       "address": {
@@ -126,37 +126,6 @@
   "keyOk": "OK",
   "keyBack": "Retour",
   "keyHome": "Accueil",
-  "whoIsWatching": "Qui regarde ?",
-  "currentProfile": "Profil actuel",
-  "profileLocked": "Protégé par un code PIN",
-  "pinTitle": "Code PIN de {name}",
-  "@pinTitle": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "pinSemantics": "Code PIN à 4 chiffres",
-  "pinInvalid": "PIN incorrect. Encore {count, plural, =1{1 essai} other{{count} essais}}.",
-  "@pinInvalid": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "pinInvalidNoCount": "PIN incorrect.",
-  "pinLocked": "Trop d'essais. Réessaie dans {seconds} s.",
-  "@pinLocked": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "pinLockedNoDelay": "Trop d'essais. Réessaie plus tard.",
-  "profilesError": "Impossible de charger les comptes.",
   "pairingConfirmTitle": "Revenir à l'appairage ?",
   "pairingConfirmBody": "La TV revient à son écran d'appairage et ce téléphone s'en déconnecte. Il faudra de nouveau scanner le QR code ou taper le code.",
   "confirm": "Continuer",
@@ -178,5 +147,11 @@
         "type": "String"
       }
     }
-  }
+  },
+  "pinPadTitle": "Code PIN",
+  "pinPadProgress": "{count} chiffres saisis sur {total}",
+  "@pinPadProgress": {
+    "placeholders": { "count": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "pinPadErase": "Effacer"
 }
