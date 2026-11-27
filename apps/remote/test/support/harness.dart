@@ -23,8 +23,8 @@ final fr = lookupAppLocalizations(const Locale('fr'));
 const fixtureInstallId = '7c1f3a52-8b4e-4d0a-9e61-2f5b8c3d1a90';
 
 /// QR de la fixture `tv/connect_response.json`.
-final fixtureQr = (readFixture('tv/connect_response.json')
-    as Map)['pairing']['qr']['payload'] as String;
+final fixtureQr = (readFixture('tv/connect_response.json') as Map)['pairing']
+    ['qr']['payload'] as String;
 
 /// TV appairée, telle que l'app la garde.
 SavedPairing savedPairing({DateTime? expiresAt}) => SavedPairing(
@@ -74,8 +74,8 @@ class TestWorld {
   /// Adresses vers lesquelles l'app a créé un client.
   final baseUrls = <String>[];
 
-  late final http.Client _offline = MockClient(
-      (_) async => throw http.ClientException('Connection refused'));
+  late final http.Client _offline =
+      MockClient((_) async => throw http.ClientException('Connection refused'));
 
   RemoteDeps get deps => RemoteDeps(
         store: store,
@@ -155,7 +155,8 @@ Future<void> unmount(WidgetTester tester) async {
 /// Tape [code] dans la saisie du code (le champ invisible sous les tuiles).
 Future<void> typeCode(WidgetTester tester, String code) async {
   // Comme l'utilisateur : toucher les tuiles ouvre le clavier.
-  await tester.tap(find.byKey(const ValueKey('code-field')), warnIfMissed: false);
+  await tester.tap(find.byKey(const ValueKey('code-field')),
+      warnIfMissed: false);
   await tester.pump();
   await tester.enterText(find.byKey(const ValueKey('code-field')), code);
   await settle(tester);
@@ -163,7 +164,9 @@ Future<void> typeCode(WidgetTester tester, String code) async {
 
 /// Bouton (BrandButton / GhostButton) par son libellé.
 Finder button(String label) => find.byWidgetPredicate(
-      (w) => w is Semantics && w.properties.label == label &&
+      (w) =>
+          w is Semantics &&
+          w.properties.label == label &&
           (w.properties.button ?? false),
       description: 'bouton "$label"',
     );
@@ -184,6 +187,12 @@ Finder gloubiShowing(String file) => find.byWidgetPredicate(
 /// Garde les touches et raccourcis envoyés, dans l'ordre.
 class FakeTvCommands implements TvCommands {
   final sent = <Object>[];
+
+  @override
+  VoidCallback? onUnauthorized;
+
+  /// Simule un refus du serveur : la TV a désappairé ce téléphone.
+  void rejectToken() => onUnauthorized?.call();
 
   @override
   Future<void> key(TvKey key) async => sent.add(key);

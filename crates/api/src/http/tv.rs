@@ -83,6 +83,16 @@ pub async fn connect(
     check_text("model", &req.model, 100)?;
     check_text("platform", &req.platform, 32)?;
     check_text("app_version", &req.app_version, 32)?;
+    // La TV (re)démarre ou revient à l'appairage : les téléphones encore
+    // appairés sont déconnectés (ils reviennent à leur écran de connexion)
+    // et le profil actif est oublié. La TV et le téléphone repartent tous
+    // les deux de l'appairage, sans état à moitié connecté.
+    let now_iso = state.now_iso();
+    let paired = state.db(move |s| Ok(s.list_devices(&now_iso)?)).await?;
+    for d in paired {
+        unpair_device(&state, Some(d.id)).await?;
+    }
+    crate::http::profiles::activate(&state, crate::state::Selection::None).await?;
     let now = state.now();
     let (session, code) =
         lock(&state.pairing).connect(now, &req.model, &req.platform, &req.app_version);
@@ -114,6 +124,42 @@ pub async fn refresh(
     }))
 }
 
+/// Désappaire le téléphone de la session TV : son jeton est révoqué, le
+/// profil actif est oublié et la TV repasse en phase `pairing`.
+/// Partagé par la TV (`POST /api/tv/unpair`) et le téléphone
+/// (`DELETE /api/session`).
+pub async fn unpair_device(state: &AppState, device_id: Option<i64>) -> ApiResult<()> {
+    if let Some(id) = device_id {
+        let at = state.now_iso();
+        state.db(move |s| Ok(s.revoke_device(id, &at)?)).await?;
+        lock(&state.pairing).detach_device(id);
+        state.emit(Event::DeviceRevoked { device_id: id });
+    }
+    crate::http::profiles::activate(state, crate::state::Selection::None).await?;
+    state.notify_tv();
+    Ok(())
+}
+
+/// `POST /api/tv/unpair` (204, app TV) : « Appairage » sur la TV. Le
+/// téléphone appairé est déconnecté (jeton révoqué) et la TV affiche de
+/// nouveau un code. Sans téléphone appairé : rien à révoquer, `204` aussi.
+pub async fn unpair(
+    _: LocalOnly,
+    State(state): State<AppState>,
+    JsonBody(req): JsonBody<TvRefreshRequest>,
+) -> ApiResult<StatusCode> {
+    check_text("tv_session_id", &req.tv_session_id, 64)?;
+    let device = lock(&state.pairing)
+        .session(&req.tv_session_id)
+        .ok_or_else(session_not_found)?
+        .device
+        .as_ref()
+        .map(|d| d.id);
+    unpair_device(&state, device).await?;
+    tracing::info!(session = %req.tv_session_id, "TV désappairée");
+    Ok(StatusCode::NO_CONTENT)
+}
+
 #[derive(Debug, Deserialize)]
 pub struct StatusQuery {
     pub tv_session_id: Option<String>,
@@ -134,6 +180,10 @@ pub async fn tv_status(state: &AppState, session_id: Option<&str>) -> ApiResult<
     let profiles = state.db(|s| Ok(s.list_profiles()?)).await?;
     let device = session.as_ref().and_then(|s| s.device.clone());
     let phase = match (&active, &device) {
+        // Session TV sans téléphone appairé : on affiche le code, même si un
+        // profil est resté actif (sinon la TV sauterait aux comptes alors
+        // que personne n'est appairé).
+        _ if session.is_some() && device.is_none() => TvPhase::Pairing,
         (Some(_), _) => TvPhase::Ready,
         (None, Some(_)) => TvPhase::Paired,
         (None, None) => TvPhase::Pairing,

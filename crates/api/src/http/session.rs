@@ -4,14 +4,14 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
 
-use epikodi_domain::ports::{DeviceRepo, ProfileRepo};
+use epikodi_domain::ports::ProfileRepo;
 use epikodi_domain::protocol::{ProfileResponse, SelectKind, SelectProfileRequest, SessionCurrent};
 
 use crate::auth::{check_pin, Auth, Ctx};
 use crate::error::{ApiError, ApiResult};
 use crate::extract::JsonBody;
 use crate::http::profiles::activate;
-use crate::state::{lock, AppState, Selection};
+use crate::state::{AppState, Selection};
 use crate::views;
 
 /// `GET /api/session`
@@ -68,15 +68,12 @@ pub async fn clear_profile(_: Auth, State(state): State<AppState>) -> ApiResult<
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// `DELETE /api/session` : la télécommande se déconnecte (son jeton est
-/// révoqué ; il faudra refaire l'appairage).
+/// `DELETE /api/session` : la télécommande se déconnecte (« Appairage » sur
+/// le téléphone). Son jeton est révoqué, le profil actif est oublié et la TV
+/// revient à son écran d'appairage.
 pub async fn logout(auth: Auth, State(state): State<AppState>) -> ApiResult<StatusCode> {
     if let Some(d) = auth.device() {
-        let id = d.id;
-        let at = state.now_iso();
-        state.db(move |s| Ok(s.revoke_device(id, &at)?)).await?;
-        lock(&state.pairing).detach_device(id);
-        state.notify_tv();
+        crate::http::tv::unpair_device(&state, Some(d.id)).await?;
     }
     Ok(StatusCode::NO_CONTENT)
 }

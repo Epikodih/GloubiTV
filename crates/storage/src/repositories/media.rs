@@ -147,8 +147,11 @@ impl MediaRepo for Store {
             None => {}
         }
         if let Some(kind) = q.kind {
-            wh.push("m.kind = ?".into());
-            args.push(Value::Text(kind.as_str().into()));
+            let all: Vec<_> = std::iter::once(kind)
+                .chain(q.extra_kinds.iter().copied())
+                .collect();
+            wh.push(format!("m.kind IN ({})", vec!["?"; all.len()].join(", ")));
+            args.extend(all.iter().map(|k| Value::Text(k.as_str().into())));
         }
         if let Some(search) = q.search.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             wh.push("fold(m.title) LIKE ? ESCAPE '\\'".into());

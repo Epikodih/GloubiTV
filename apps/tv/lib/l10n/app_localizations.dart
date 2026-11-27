@@ -422,6 +422,108 @@ abstract class AppLocalizations {
   /// **'Entrez le code PIN pour modifier la restriction d’âge.'**
   String get pinSubtitle;
 
+  /// No description provided for @newPinTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisis un code PIN'**
+  String get newPinTitle;
+
+  /// No description provided for @newPinSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Il protège le contrôle parental de ce compte.'**
+  String get newPinSubtitle;
+
+  /// No description provided for @confirmPinTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirme le code PIN'**
+  String get confirmPinTitle;
+
+  /// No description provided for @confirmPinSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tape le même code une seconde fois.'**
+  String get confirmPinSubtitle;
+
+  /// No description provided for @pinMismatch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les deux codes ne correspondent pas.'**
+  String get pinMismatch;
+
+  /// No description provided for @pinResetSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ton code PIN a été effacé. Choisis-en un nouveau pour entrer.'**
+  String get pinResetSubtitle;
+
+  /// No description provided for @adultPinTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN d’un adulte'**
+  String get adultPinTitle;
+
+  /// No description provided for @adultPinCreateSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un adulte doit autoriser la création d’un compte sans restriction.'**
+  String get adultPinCreateSubtitle;
+
+  /// No description provided for @adultPinDeleteSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un adulte doit autoriser la suppression d’un compte.'**
+  String get adultPinDeleteSubtitle;
+
+  /// No description provided for @editAccounts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier'**
+  String get editAccounts;
+
+  /// No description provided for @editDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Terminé'**
+  String get editDone;
+
+  /// No description provided for @manageAccounts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gérer les comptes'**
+  String get manageAccounts;
+
+  /// No description provided for @chooseAccountToDelete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisis le compte à supprimer.'**
+  String get chooseAccountToDelete;
+
+  /// No description provided for @deleteAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteAccountSemantics.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer le compte de {name}'**
+  String deleteAccountSemantics(String name);
+
+  /// No description provided for @deleteAccountTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer le compte de {name} ?'**
+  String deleteAccountTitle(String name);
+
+  /// No description provided for @deleteAccountBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ses favoris, sa liste « À regarder » et sa reprise de lecture seront perdus. Les fichiers ne sont pas touchés.'**
+  String get deleteAccountBody;
+
   /// No description provided for @pinWrong.
   ///
   /// In fr, this message translates to:

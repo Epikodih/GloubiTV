@@ -33,6 +33,9 @@ import 'search_view.dart';
 /// (voir `player/server_player.dart`) ; Retour revient sur la fiche.
 /// Parcourir une série ou un album (saisons, pistes) n'est pas encore branché.
 class LibraryScreen extends StatefulWidget {
+  /// Nom de la route de la médiathèque : la touche Accueil y revient.
+  static const routeName = 'library';
+
   const LibraryScreen({
     super.key,
     required this.api,
@@ -165,8 +168,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final _guestLists = SessionLists();
 
   /// Les réglages du media center sont réservés aux comptes non restreints.
+  /// Paramètres (dossiers) : comptes sans restriction et invité (sinon,
+  /// sans compte, personne ne pourrait ajouter de dossier). Pas les
+  /// comptes restreints (enfants).
   bool get _canChangeSettings =>
-      _profile['kind'] == 'account' && _profile['is_restricted'] != true;
+      _profile['kind'] == 'guest' ||
+      (_profile['kind'] == 'account' && _profile['is_restricted'] != true);
 
   /// OK sur une affiche : fiche du média. Si les favoris ou « À regarder »
   /// ont changé, la liste affichée est rechargée.
@@ -327,8 +334,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               onSelect: _select,
                               onOpenChanged: (open) =>
                                   setState(() => _menuOpen = open),
-                              onSettings:
-                                  _canChangeSettings ? _openSettings : null,
                             ),
                           ),
                         ),

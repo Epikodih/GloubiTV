@@ -130,6 +130,24 @@ netsh interface portproxy add v4tov4 listenport=7878 listenaddress=0.0.0.0 conne
 et mettre l'IP Windows du PC dans `epikodi.toml` (`host = "192.168.x.x"`) pour
 que le QR code pointe au bon endroit.
 
+## PIN oublié
+
+Sur la machine du serveur (pas depuis la TV ni la télécommande : il faut y
+avoir accès, un enfant devant la TV ne l'a pas), depuis le dossier du serveur :
+
+```bash
+cargo run -p epikodi-core -- reset-pin Marc     # le PIN d'un compte
+cargo run -p epikodi-core -- reset-pin --all    # le PIN de tous les comptes
+```
+
+Avec le binaire : `epikodi-core reset-pin Marc`. Le nom ignore les
+majuscules. Seul le PIN est effacé : favoris, listes et reprises sont gardés.
+Possible serveur lancé. Au prochain choix du compte sur la TV, un nouveau
+code est demandé (deux fois) avant d'entrer.
+
+Tant qu'aucun adulte n'a de PIN, créer ou supprimer un compte ne demande
+plus de PIN adulte : choisissez le nouveau code tout de suite.
+
 ## Limites connues
 
 - Extensions : le format, les permissions, l'installation / mise à jour / désinstallation à chaud et le superviseur (plantage, blocage) sont faits. Le moteur d'exécution WASM (wasmtime) qui implémente `ExtensionRuntime` reste à brancher.

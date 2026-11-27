@@ -120,14 +120,14 @@ impl PairingManager {
         app_version: &str,
     ) -> (TvSession, PairingCode) {
         let id = random_session_id();
-        // Un appareil déjà appairé dans une session précédente reste connu.
-        let device = self.sessions.values().find_map(|s| s.device.clone());
+        // Nouvelle session = la TV vient de (re)démarrer ou revient à
+        // l'appairage : aucun téléphone, il faudra appairer de nouveau.
         let session = TvSession {
             id: id.clone(),
             model: model.into(),
             platform: platform.into(),
             app_version: app_version.into(),
-            device,
+            device: None,
         };
         self.sessions.insert(id.clone(), session.clone());
         self.order.push_back(id.clone());
@@ -328,8 +328,8 @@ mod tests {
         assert_eq!(m.session(&s.id).unwrap().device.as_ref().unwrap().id, 1);
         let (s2, _) = m.connect(t0(), "Desktop", "linux", "0.1.0");
         assert!(
-            m.session(&s2.id).unwrap().device.is_some(),
-            "connu après redémarrage de la TV"
+            m.session(&s2.id).unwrap().device.is_none(),
+            "TV redémarrée : il faut appairer de nouveau"
         );
         m.detach_device(1);
         assert!(m.session(&s.id).unwrap().device.is_none());

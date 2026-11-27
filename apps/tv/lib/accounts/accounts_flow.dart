@@ -1,10 +1,14 @@
 import 'package:epikodi_client/epikodi_client.dart' show ApiException;
+import 'package:design_system/design_system.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/api.dart';
+import '../l10n/app_localizations.dart';
 import '../library/library_screen.dart';
+import '../remote/remote_keys.dart';
 import 'accounts_screen.dart';
 import 'create_account_screen.dart';
+import '../widgets/pin_dialog.dart' show showPinDialog;
 import 'pin_dialog.dart';
 
 /// Relie les écrans de choix de compte :
@@ -42,6 +46,30 @@ class _AccountsFlowState extends State<AccountsFlow> {
   /// Évite les doubles appuis pendant un appel réseau.
   bool _busy = false;
 
+  /// Mode « modifier » : supprimer des comptes.
+  bool _editing = false;
+
+  /// « Changer de profil » sur la télécommande : retour à cet écran, depuis
+  /// n'importe où (médiathèque, fiche, lecteur…). Revenir ici oublie le
+  /// profil actif (voir [_openLibrary]).
+  void _switchProfile() {
+    final route = ModalRoute.of(context);
+    if (route == null || !mounted) return;
+    Navigator.of(context).popUntil((r) => r == route);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    remoteSwitchProfile = _switchProfile;
+  }
+
+  @override
+  void dispose() {
+    if (remoteSwitchProfile == _switchProfile) remoteSwitchProfile = null;
+    super.dispose();
+  }
+
   @override
   void didUpdateWidget(AccountsFlow old) {
     super.didUpdateWidget(old);
@@ -52,22 +80,87 @@ class _AccountsFlowState extends State<AccountsFlow> {
 
   // ------------------------------------------------------------- navigation
 
-  Future<void> _openLibrary(Map<String, dynamic> profile) {
-    return Navigator.of(context).push(MaterialPageRoute<void>(
+  Future<void> _openLibrary(Map<String, dynamic> profile) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      settings: const RouteSettings(name: LibraryScreen.routeName),
       builder: (ctx) => LibraryScreen(
         api: widget.api,
         profile: profile,
-        // Retour à « Qui regarde ? ».
         onChangeProfile: () => Navigator.of(ctx).pop(),
         onBackToPairing: widget.onBackToPairing,
       ),
     ));
+    // Revenu à « Qui regarde ? », par n'importe quel chemin (« Changer de
+    // profil », touche Retour…) : plus de profil actif. Sinon un invité ou
+    // un enfant resterait actif et la création d'un compte serait refusée.
+    if (mounted) await widget.api.clearProfile();
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+  /// Erreur : popup qui disparaît toute seule (comme partout dans l'app).
+  void _showError(String message) =>
+      showErrorToast(context, message, scale: tvToastScale);
+
+  List<Map<String, dynamic>> get _profiles =>
+      (_data['profiles'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+
+  /// Un compte adulte (protégé par un PIN) existe.
+  bool get _adultExists => _profiles.any((p) => p['requires_pin'] == true);
+
+  /// Supprime un compte : une confirmation, le PIN d'un adulte (dès qu'un
+  /// adulte existe : sinon un enfant supprime les adultes puis se crée le
+  /// sien), puis `DELETE /api/profiles/{id}`.
+  Future<void> _delete(Map<String, dynamic> p) async {
+    if (_busy) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ConfirmDeleteDialog(name: '${p['name']}'),
+    );
+    if (ok != true || !mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final needsAdult = _adultExists;
+    String? pin;
+    String? pinError;
+    _busy = true;
+    try {
+      while (true) {
+        if (needsAdult) {
+          if (!mounted) return;
+          pin = await showPinDialog(context,
+              title: l10n.adultPinTitle,
+              subtitle: l10n.adultPinDeleteSubtitle,
+              errorText: pinError);
+          if (pin == null || !mounted) return; // annulé
+        }
+        try {
+          await widget.api.deleteProfile(p['id'] as Object, pin: pin);
+          break;
+        } on ApiException catch (e) {
+          // PIN faux : redemandé dans la popup.
+          if (needsAdult && e.code == 'pin_invalid' && mounted) {
+            pinError = e.message;
+            continue;
+          }
+          rethrow;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _data = {
+          ..._data,
+          'profiles': [
+            for (final o in _profiles)
+              if (o['id'] != p['id']) o,
+          ],
+        };
+        if (_profiles.isEmpty) _editing = false;
+      });
+    } on ApiException catch (e) {
+      if (mounted) _showError(e.message);
+    } finally {
+      _busy = false;
+    }
   }
 
   // ---------------------------------------------------------------- actions
@@ -75,6 +168,13 @@ class _AccountsFlowState extends State<AccountsFlow> {
   Future<void> _pick(Map<String, dynamic> p) async {
     if (_busy) return;
     final id = p['id']; // entier, comme dans la fixture
+
+    // Compte adulte sans PIN : son PIN a été effacé (`epikodi-core
+    // reset-pin`). Il faut en choisir un nouveau avant d'entrer.
+    if (p['is_restricted'] == false && p['requires_pin'] != true) {
+      await _pickAfterPinReset(p);
+      return;
+    }
 
     if (p['requires_pin'] == true) {
       Map<String, dynamic>? active;
@@ -100,13 +200,64 @@ class _AccountsFlowState extends State<AccountsFlow> {
     await _run(() => widget.api.selectProfile(profileId: id));
   }
 
+  /// Ouvre le compte, demande un nouveau PIN (deux fois) et l'enregistre.
+  /// Annulé : on revient à « Qui regarde ? » sans entrer.
+  Future<void> _pickAfterPinReset(Map<String, dynamic> p) async {
+    final l10n = AppLocalizations.of(context)!;
+    final id = p['id'] as Object;
+    _busy = true;
+    try {
+      await widget.api.selectProfile(profileId: id);
+      String? error;
+      String? pin;
+      while (pin == null) {
+        if (!mounted) return;
+        final first = await showPinDialog(context,
+            title: l10n.newPinTitle,
+            subtitle: l10n.pinResetSubtitle,
+            errorText: error);
+        if (first == null || !mounted) break;
+        final second = await showPinDialog(context,
+            title: l10n.confirmPinTitle, subtitle: l10n.confirmPinSubtitle);
+        if (second == null) break;
+        if (first == second) {
+          pin = first;
+        } else {
+          error = l10n.pinMismatch;
+        }
+      }
+      if (pin == null) {
+        await widget.api.clearProfile(); // annulé : pas d'entrée sans PIN
+        return;
+      }
+      final profile = await widget.api.setNewPin(id, pin);
+      if (!mounted) return;
+      setState(() {
+        _data = {
+          ..._data,
+          'profiles': [
+            for (final o in _profiles)
+              if (o['id'] == id) {...o, 'requires_pin': true} else o,
+          ],
+        };
+      });
+      _busy = false;
+      await _openLibrary(profile);
+    } on ApiException catch (e) {
+      if (mounted) _showError(e.message);
+    } finally {
+      _busy = false;
+    }
+  }
+
   Future<void> _guest() => _run(() => widget.api.selectProfile(guest: true));
 
   Future<void> _create() async {
     if (_busy) return;
     final created = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
-        builder: (_) => CreateAccountScreen(api: widget.api),
+        builder: (_) =>
+            CreateAccountScreen(api: widget.api, adultExists: _adultExists),
       ),
     );
     if (created == null || !mounted) return; // Annulé.
@@ -144,6 +295,77 @@ class _AccountsFlowState extends State<AccountsFlow> {
       onProfile: _pick,
       onGuest: _guest,
       onCreate: _create,
+      editing: _editing,
+      onToggleEdit: () => setState(() => _editing = !_editing),
+      onDelete: _delete,
+    );
+  }
+}
+
+/// « Supprimer le compte de Marc ? » : « Annuler » a le focus.
+class _ConfirmDeleteDialog extends StatelessWidget {
+  const _ConfirmDeleteDialog({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    Widget action(String text, bool value,
+            {bool autofocus = false, IconData? icon, Key? key}) =>
+        FocusableCard(
+          key: key,
+          autofocus: autofocus,
+          borderRadius: 999,
+          onTap: () => Navigator.of(context).pop(value),
+          semanticLabel: text,
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: AppColors.error),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+              Text(text,
+                  style: AppText.body.copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
+        );
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.deleteAccountTitle(name),
+                  style: AppText.title, textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.sm),
+              Text(l10n.deleteAccountBody,
+                  style: AppText.body.copyWith(color: AppColors.textMuted),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.lg),
+              Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.sm,
+                alignment: WrapAlignment.center,
+                children: [
+                  action(l10n.cancel, false, autofocus: true),
+                  action(l10n.deleteAccount, true,
+                      icon: Icons.delete_rounded,
+                      key: const ValueKey('confirm-delete-account')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

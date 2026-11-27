@@ -27,7 +27,8 @@ use epikodi_domain::ports::{
 };
 use epikodi_domain::protocol::{
     CastRequest, Event, InputRequest, NowPlaying, PlayRequest, PlayerCommand, PlayerReport,
-    PlayerState, TvCommand,
+    PlayerState, RemoteShortcut, RemoteShortcutRequest, RemoteTextRequest, TextInputState,
+    TvCommand,
 };
 use epikodi_domain::queue::{next_in_queue, previous_in_queue, shuffled, QueueMode, RepeatMode};
 use epikodi_domain::source::media_extension;
@@ -600,6 +601,72 @@ pub async fn input(
 ) -> StatusCode {
     state.emit(Event::Input { key: req.key });
     StatusCode::NO_CONTENT
+}
+
+/// Texte d'un champ de la TV : au plus 1000 caractères.
+const MAX_TEXT: usize = 1000;
+
+/// `POST /api/remote/text` (204) : texte tapé sur le téléphone, relayé à la
+/// TV (`remote.text`) qui l'écrit dans le champ qui a le focus.
+pub async fn text(
+    _: Auth,
+    State(state): State<AppState>,
+    JsonBody(req): JsonBody<RemoteTextRequest>,
+) -> ApiResult<StatusCode> {
+    if req.value.chars().count() > MAX_TEXT {
+        return Err(ApiError::validation(
+            "value",
+            format!("{MAX_TEXT} caractères au plus"),
+        ));
+    }
+    state.emit(Event::RemoteText {
+        text: req.value,
+        done: req.done,
+    });
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /api/remote/shortcut` (204) : raccourci du menu de la télécommande,
+/// relayé à la TV (`remote.shortcut`). `language` : `fr` ou `en`.
+pub async fn shortcut(
+    _: Auth,
+    State(state): State<AppState>,
+    JsonBody(req): JsonBody<RemoteShortcutRequest>,
+) -> ApiResult<StatusCode> {
+    let language = match req.shortcut {
+        RemoteShortcut::Language => match req.language.as_deref() {
+            Some(l @ ("fr" | "en")) => Some(l.to_string()),
+            _ => return Err(ApiError::validation("language", "fr ou en")),
+        },
+        RemoteShortcut::Profile | RemoteShortcut::SwitchProfile => None,
+    };
+    state.emit(Event::RemoteShortcut {
+        shortcut: req.shortcut,
+        language,
+    });
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /api/tv/text-input` (204, app TV) : champ texte qui a le focus,
+/// relayé aux téléphones (`text_input`) pour qu'ils ouvrent leur clavier.
+pub async fn text_input(
+    _: LocalOnly,
+    State(state): State<AppState>,
+    JsonBody(req): JsonBody<TextInputState>,
+) -> ApiResult<StatusCode> {
+    if req
+        .value
+        .as_deref()
+        .is_some_and(|v| v.chars().count() > MAX_TEXT)
+    {
+        return Err(ApiError::validation(
+            "value",
+            format!("{MAX_TEXT} caractères au plus"),
+        ));
+    }
+    *lock(&state.text_input) = req.active.then(|| req.clone());
+    state.emit(Event::TextInput(req));
+    Ok(StatusCode::NO_CONTENT)
 }
 
 fn start_cast(state: &AppState, title: String, uri: String) -> PlayerState {

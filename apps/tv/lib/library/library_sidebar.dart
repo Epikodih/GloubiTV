@@ -13,8 +13,8 @@ import 'library_section.dart';
 /// - En entrant, le focus va sur l'entrée affichée. Ensuite, passer sur une
 ///   entrée l'affiche tout de suite à droite, sans valider.
 /// - Sa hauteur suit ses entrées (pas de vide en bas).
-/// - En bas, « Paramètres » ([onSettings]) : les dossiers du media center.
-///   Lui ne s'ouvre qu'avec OK (pas au simple passage).
+/// Les paramètres du media center sont dans le menu du profil (en haut à
+/// droite), pas ici.
 /// L'entrée affichée est marquée par une barre (et un texte en gras une fois
 /// déplié), pas seulement par la couleur.
 class LibrarySidebar extends StatefulWidget {
@@ -23,7 +23,6 @@ class LibrarySidebar extends StatefulWidget {
     required this.selected,
     required this.onSelect,
     required this.onOpenChanged,
-    this.onSettings,
   });
 
   /// Entrées du menu, dans l'ordre (sans la recherche).
@@ -46,9 +45,6 @@ class LibrarySidebar extends StatefulWidget {
   final ValueChanged<LibrarySection> onSelect;
   final ValueChanged<bool> onOpenChanged;
 
-  /// Ouvre les paramètres. Null : entrée cachée (invité, compte restreint).
-  final VoidCallback? onSettings;
-
   @override
   State<LibrarySidebar> createState() => _LibrarySidebarState();
 }
@@ -58,7 +54,6 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     for (final s in LibrarySidebar.sections)
       s: FocusNode(debugLabel: 'nav-${s.name}'),
   };
-  final _settingsNode = FocusNode(debugLabel: 'nav-settings');
   bool _open = false;
 
   @override
@@ -66,7 +61,6 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     for (final n in _nodes.values) {
       n.dispose();
     }
-    _settingsNode.dispose();
     super.dispose();
   }
 
@@ -76,9 +70,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     widget.onOpenChanged(open);
   }
 
-  /// Une entrée vient de prendre le focus ([section] null : Paramètres,
-  /// qui ne change pas la liste affichée).
-  void _itemFocused(LibrarySection? section) {
+  /// Une entrée vient de prendre le focus.
+  void _itemFocused(LibrarySection section) {
     if (!_open) {
       // On entre dans le menu : sur l'entrée affichée, pas sur la plus
       // proche (qui changerait la liste sans le vouloir).
@@ -86,7 +79,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
       if (section != widget.selected) _nodes[widget.selected]!.requestFocus();
       return;
     }
-    if (section != null) widget.onSelect(section);
+    widget.onSelect(section);
   }
 
   @override
@@ -121,31 +114,6 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
           onTap: () => widget.onSelect(section),
         ),
       ));
-    }
-    if (widget.onSettings case final open?) {
-      children
-        ..add(const Padding(
-          padding: EdgeInsets.symmetric(
-              vertical: AppSpacing.xs, horizontal: AppSpacing.sm),
-          child: Divider(color: AppColors.surfaceHigh, thickness: 2),
-        ))
-        ..add(Focus(
-          canRequestFocus: false,
-          skipTraversal: true,
-          onFocusChange: (has) {
-            if (has) _itemFocused(null);
-          },
-          child: _SidebarItem(
-            key: const ValueKey('nav-settings'),
-            focusNode: _settingsNode,
-            icon: Icons.settings_rounded,
-            label: l10n.settings,
-            selected: false,
-            expanded: _open,
-            duration: duration,
-            onTap: open,
-          ),
-        ));
     }
 
     return Focus(

@@ -22,13 +22,21 @@ Chaque fichier fixe la **forme** d'une requête ou d'une réponse (champs et typ
 | `POST /api/tv/connect` (201) | localhost | `tv/connect_request.json` | `tv/connect_response.json` |
 | `POST /api/tv/pairing/refresh` | localhost | `tv/refresh_request.json` | `tv/refresh_response.json` |
 | `GET /api/tv/status` | localhost | | `tv/status.json` |
+| `POST /api/tv/unpair` (204) | localhost | `tv/unpair_request.json` | |
+| `POST /api/tv/text-input` (204) | localhost | `tv/text_input_request.json` | |
 | `POST /api/remote/pair` | aucune | `pairing/request.json` | `pairing/response.json` |
+| `POST /api/remote/input` (204) | Bearer | `remote/input_request.json` | |
+| `POST /api/remote/text` (204) | Bearer | `remote/text_request.json` | |
+| `POST /api/remote/shortcut` (204) | Bearer | `remote/shortcut_request.json` | |
 | `GET /api/profiles` | Bearer | | `profiles/list.json` |
 | `POST /api/profiles` (201) | Bearer | `profiles/create_request.json` | `profiles/create_response.json` |
 | `GET /api/profiles/{id}` | Bearer | | `profiles/get_response.json` |
 | `PATCH /api/profiles/{id}` | Bearer | `profiles/update_request.json` | `profiles/update_response.json` |
+| `DELETE /api/profiles/{id}` (204) | Bearer | | |
 | `GET /api/session` | Bearer | | `session/current.json` |
+| `DELETE /api/session` (204) | Bearer | | |
 | `POST /api/session/profile` | Bearer | `session/select_request.json` | `session/select_response.json` |
+| `DELETE /api/session/profile` (204) | Bearer | | |
 | `GET /api/media` | Bearer + profil choisi | | `media/list.json` |
 | `GET /api/media/{id}` | Bearer + profil choisi | | `media/get_response.json` |
 | `PUT` / `DELETE /api/media/{id}/favorite` (204) | Bearer + profil choisi | | |
@@ -51,7 +59,17 @@ décrites dans `docs/dev/protocol.md`.
 
 ## Règles que les fixtures ne peuvent pas montrer
 
-**`tv/status`** : `phase` vaut `pairing` (code affiché), `paired` (téléphone appairé, profil pas encore choisi) ou `ready` (profil actif). `pairing` est rempli seulement en phase `pairing`, sinon `null`. `device` reste `null` jusqu'à l'appairage. `active_profile` reste `null` jusqu'au choix du profil.
+**`tv/status`** : `phase` vaut `pairing` (code affiché), `paired` (téléphone appairé, profil pas encore choisi) ou `ready` (profil actif). `pairing` est rempli seulement en phase `pairing`, sinon `null`. `device` reste `null` jusqu'à l'appairage. `active_profile` reste `null` jusqu'au choix du profil. Une session TV sans téléphone appairé est toujours en phase `pairing`, même si un profil est resté actif. `POST /api/tv/connect` (la TV démarre ou revient à l'appairage) déconnecte les téléphones encore appairés et oublie le profil actif : il faut appairer de nouveau, comme le téléphone le fait à chaque lancement.
+
+**Touches de la télécommande** : `POST /api/remote/input` avec `key` = `up`, `down`, `left`, `right`, `ok`, `back`, `home`, `menu`, `info` ou `play_pause`. Le cœur relaie la touche à la TV sur le WebSocket `GET /api/ws` : `{"type": "input", "data": {"key": "up"}}`. La TV la traite comme une touche du clavier.
+
+**Clavier et raccourcis de la télécommande** (même chemin, par le WebSocket) :
+- `POST /api/remote/text` `{"value", "done"}` → la TV reçoit `{"type": "remote.text", "data": {"text", "done"}}` et écrit dans le champ qui a le focus (`done` : validé, comme Entrée). 1000 caractères au plus.
+- `POST /api/remote/shortcut` `{"shortcut": "profile"}`, `{"shortcut": "switch_profile"}` ou `{"shortcut": "language", "language": "fr" | "en"}` → la TV reçoit `remote.shortcut`. `switch_profile` ramène la TV à « Qui regarde ? » (profil actif oublié) : le nouveau compte se choisit sur la TV, jamais sur le téléphone seul (pas de désynchronisation). Le téléphone suit le profil avec l'événement `profile.changed`.
+- `POST /api/tv/text-input` (app TV) : le champ qui a le focus (`{"active": false}` quand il n'y en a plus) → les téléphones reçoivent `{"type": "text_input", "data": {...}}` et ouvrent leur clavier. Un téléphone qui ouvre son WebSocket pendant qu'un champ a le focus le reçoit tout de suite.
+- Le téléphone écoute `GET /api/ws` avec son jeton. Si son jeton est révoqué (la TV l'a désappairé), le serveur envoie aussitôt `{"type": "error", "data": {"code": "unauthorized"}}` puis ferme la connexion.
+
+**Désappairage** : « Appairage » sur la TV (`POST /api/tv/unpair`) ou sur le téléphone (`DELETE /api/session`) révoque le jeton du téléphone, oublie le profil actif et remet la TV en phase `pairing` (un nouveau `tv/status` part sur le flux de la TV). Le téléphone reçoit ensuite `unauthorized` et revient à son écran de connexion.
 
 **Profil** (`profile` dans les réponses) : `kind` vaut `account` ou `guest`. Un invité a `id: null`, `icon: null`, `age: 0` et `is_restricted: true`. Il n'existe pas en base.
 
@@ -60,6 +78,12 @@ décrites dans `docs/dev/protocol.md`.
 **`GET /api/profiles`** : renvoie tout ce qu'il faut pour la page des comptes (invité, droit de créer, liste des comptes).
 
 **`profiles/update_request`** : mêmes champs que la création. `pin` est obligatoire quand on touche à la restriction d'âge (`age` ou `is_restricted`) ; le serveur répond `pin_required` ou `pin_invalid` sinon. Un invité ne peut modifier aucun compte.
+
+**Supprimer un compte** (`DELETE /api/profiles/{id}`, possible depuis « Qui regarde ? », sans profil choisi) : le PIN d'un adulte est demandé (`profiles/delete_request`, n'importe quel compte non restreint), pour un compte enfant comme adulte, sauf si un adulte est connecté ou qu'il n'existe aucun adulte : sinon un enfant supprimerait les adultes puis se créerait le sien, ou supprimerait le compte d'un autre enfant. `pin_required`, `pin_invalid`, `pin_locked` comme pour le choix du profil. Les favoris, la liste « À regarder » et la reprise de ce compte sont perdus ; les fichiers ne sont pas touchés.
+
+**PIN effacé** (`epikodi-core reset-pin`, sur la machine du serveur) : le compte non restreint a `requires_pin: false`. Il se choisit sans PIN, puis la TV demande un nouveau code et l'enregistre (`PATCH /api/profiles/{id}` avec `new_pin` seul, le compte étant actif et adulte, aucun ancien PIN n'est demandé).
+
+**Créer un compte** (`POST /api/profiles`) : un compte restreint se crée librement. Un compte non restreint demande `adult_pin`, le PIN d'un adulte existant (n'importe quel compte non restreint), sauf si un adulte est connecté ou s'il n'existe encore aucun adulte (le tout premier compte) : un enfant ne peut donc pas se créer un compte adulte avec son propre PIN. `pin_required` (absent), `pin_invalid`, `pin_locked` (trop d'essais, comptés sur le premier adulte). Un invité ne peut rien créer (`guest_forbidden`). Revenir à « Qui regarde ? » oublie le profil actif (`DELETE /api/session/profile`).
 
 **`session/select_request`** :
 - `{"type": "guest"}` : ni `profile_id`, ni `pin`
@@ -89,7 +113,7 @@ décrites dans `docs/dev/protocol.md`.
 
 **`PUT` / `DELETE /api/media/{id}/favorite`** et **`/watchlist`** : ajoute ou retire le média de la liste du profil actif. Sans corps, réponse `204` sans corps. Idempotent : ajouter un média déjà présent ou retirer un média absent répond aussi `204`. Un invité reçoit `guest_forbidden` : la TV garde elle-même ses favoris et sa liste « À regarder », en mémoire, le temps de la session (perdus en changeant de profil).
 
-**`sources`** : les dossiers que le media center scanne (table `source`). Réservé aux comptes non restreints : un invité ou un compte restreint reçoit `settings_forbidden`.
+**`sources`** : les dossiers que le media center scanne (table `source`). Réservé aux comptes non restreints et à l'invité (sans compte, il faut pouvoir ajouter des dossiers) : un compte restreint reçoit `settings_forbidden`.
 - `uri` : `file:///D:/Films` pour un dossier du serveur, `smb://nas/films` pour un partage réseau. `protocol` (`local`, `smb`, `dlna`, `nfs`, `webdav`) est déduit de l'URI par le serveur.
 - `status` : `online`, `offline`, `error` ou `unknown` (jamais vérifié). `last_scan_at` est `null` tant qu'aucun scan n'a eu lieu. `media_count` : médias trouvés dans ce dossier.
 - `POST /api/sources` : `name` est facultatif (par défaut le nom du dossier). Dossier introuvable ou URI invalide : `validation_failed` (`details.fields.uri`). Dossier déjà ajouté : `source_exists`. Le serveur lance un premier scan.
@@ -122,7 +146,7 @@ décrites dans `docs/dev/protocol.md`.
 | `profile_name_taken` | 409 | Nom déjà pris |
 | `validation_failed` | 422 | Champ invalide (`details.fields`) |
 | `media_not_found` | 404 | Média ou `parent_id` inconnu, ou média masqué par le contrôle parental |
-| `settings_forbidden` | 403 | Réglages du media center demandés par un invité ou un compte restreint |
+| `settings_forbidden` | 403 | Réglages du media center demandés par un compte restreint |
 | `source_not_found` | 404 | Dossier de scan inconnu |
 | `source_exists` | 409 | Dossier déjà ajouté |
 | `invalid_query` | 422 | Paramètre invalide (`details.fields`) |

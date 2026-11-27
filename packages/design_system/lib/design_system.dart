@@ -5,3 +5,4 @@ export 'src/tv_safe_area.dart';
 export 'src/ui_settings.dart';
 export 'src/brand.dart';
 export 'src/gloubi.dart';
+export 'src/error_toast.dart';

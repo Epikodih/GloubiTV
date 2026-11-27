@@ -44,7 +44,8 @@ média masqué répond `404 media_not_found` (on ne révèle pas qu'il existe).
 | `GET /api/health` | public | `health/ok.json` ; `503 {"status": "starting"}` tant que la base n'est pas prête |
 | `POST /api/tv/connect` | local | `201` `tv/connect_response.json` : session TV, code à 6 chiffres, QR |
 | `POST /api/tv/pairing/refresh` | local | nouveau code ; `404 tv_session_not_found` après un redémarrage du serveur |
-| `GET /api/tv/status?tv_session_id=` | local | `tv/status.json` : `phase` = `pairing` → `paired` → `ready` |
+| `GET /api/tv/status?tv_session_id=` | local | `tv/status.json` : `phase` = `pairing` → `paired` → `ready` (toujours `pairing` sans téléphone appairé) |
+| `POST /api/tv/unpair` | local | `{"tv_session_id"}` → `204` : révoque le téléphone appairé, oublie le profil actif, retour à `pairing` |
 | `GET /api/tv/events?tv_session_id=` | local | flux SSE : un `tv/status` à l'ouverture puis à chaque changement |
 | `POST /api/remote/pair` | public | `pairing/response.json` : jeton (30 jours) |
 
@@ -59,10 +60,10 @@ Un appairage avec le même `install_id` révoque l'ancien jeton.
 | Route | Accès | Notes |
 |---|---|---|
 | `GET /api/profiles` | jeton | invité, droit de créer, comptes (`profiles/list.json`) |
-| `POST /api/profiles` | jeton, pas l'invité | `201`, le compte devient actif. PIN 4 chiffres obligatoire si non restreint, interdit sinon. Créer un compte non restreint alors qu'un adulte existe : `admin_required` sans adulte connecté |
+| `POST /api/profiles` | jeton, pas l'invité | `201`, le compte devient actif. PIN 4 chiffres obligatoire si non restreint, interdit sinon. Compte non restreint alors qu'un adulte existe et qu'aucun n'est connecté : `adult_pin`, le PIN de n'importe quel adulte (`pin_required`, `pin_invalid`, `pin_locked`). Le tout premier adulte est libre |
 | `GET /api/profiles/{id}` | jeton | `profiles/get_response.json` |
-| `PATCH /api/profiles/{id}` | compte | champs facultatifs. Toucher à `age` / `is_restricted` / `new_pin` : PIN du compte (`pin_required`, `pin_invalid`, `pin_locked`), ou un adulte connecté pour un compte restreint. Un profil restreint ne modifie que lui-même |
-| `DELETE /api/profiles/{id}` | compte | corps facultatif `{"pin": "1234"}` |
+| `PATCH /api/profiles/{id}` | compte | champs facultatifs. Toucher à `age` / `is_restricted` / `new_pin` : PIN du compte (`pin_required`, `pin_invalid`, `pin_locked`), ou un adulte connecté pour un compte restreint ou sans PIN (effacé par `reset-pin`). Un profil restreint ne modifie que lui-même |
+| `DELETE /api/profiles/{id}` | jeton ou TV locale | `204`. Sans adulte connecté, le PIN de n'importe quel adulte (`profiles/delete_request.json`), pour un compte enfant comme adulte, sauf s'il n'existe aucun adulte avec PIN |
 | `GET /api/session` | jeton | appareil (`null` pour la TV) et profil actif |
 | `POST /api/session/profile` | jeton | `{"type": "guest"}` ou `{"type": "account", "profile_id", "pin"?}` |
 | `DELETE /api/session/profile` | jeton | retour au choix du profil (`204`) |
@@ -156,6 +157,9 @@ Permissions : `network`, `library.read`, `library.write`, `playback.control`,
 | `player.command` | instruction pour l'app TV (`load`, `play`, `pause`, `seek`, `volume`...) |
 | `queue.changed` | file modifiée |
 | `input` | touche de la télécommande (pour l'app TV) |
+| `remote.text`, `remote.shortcut` | texte tapé et raccourci (profil, langue) de la télécommande (pour l'app TV) |
+| `text_input` | champ texte qui a le focus sur la TV (pour la télécommande, qui ouvre son clavier) |
+| `device.revoked` | un téléphone a été désappairé ; son propre WebSocket reçoit `unauthorized` et se ferme aussitôt |
 | `profile.changed`, `preferences.changed` | profil actif ou préférences (thème à chaud) |
 | `pairing.completed` | un téléphone vient d'être appairé |
 | `library.updated`, `source.status` | fin de scan, source en ligne / hors ligne |

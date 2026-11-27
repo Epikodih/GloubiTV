@@ -20,7 +20,7 @@ class RemoteDeps {
     this.scanQr,
     this.defaultServer = defaultServerAddress,
     this.commands = _httpCommands,
-    this.events = _sseEvents,
+    this.events = _wsEvents,
   });
 
   /// Événements du serveur pour le téléphone (ex. champ texte de la TV).
@@ -28,9 +28,9 @@ class RemoteDeps {
           EpikodiClient client, void Function(Map<String, dynamic>) onEvent)
       events;
 
-  static RemoteEventsSource _sseEvents(EpikodiClient client,
+  static RemoteEventsSource _wsEvents(EpikodiClient client,
           void Function(Map<String, dynamic>) onEvent) =>
-      SseRemoteEvents(
+      WsRemoteEvents(
         baseUrl: client.http.baseUrl.toString(),
         token: client.token,
         onEvent: onEvent,

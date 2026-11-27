@@ -1,8 +1,12 @@
 // Touches de la télécommande -> focus de la TV (comme le clavier).
+import 'dart:async';
+
 import 'package:design_system/design_system.dart';
 import 'package:epikodi_tv/accounts/create_account_screen.dart';
 import 'package:epikodi_tv/api/api.dart';
+import 'package:epikodi_tv/library/library_screen.dart';
 import 'package:epikodi_tv/locale.dart';
+import 'package:epikodi_tv/player/server_player.dart';
 import 'package:epikodi_tv/remote/remote_keys.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -109,6 +113,28 @@ void main() {
     expect(find.text('page 2'), findsNothing);
   });
 
+  testWidgets('Accueil : retour au media center, pas aux comptes',
+      (tester) async {
+    await pump(tester); // premier écran (comme « Qui regarde ? »)
+    nav.currentState!.push(MaterialPageRoute<void>(
+        settings: const RouteSettings(name: LibraryScreen.routeName),
+        builder: (_) => const Scaffold(body: Text('médiathèque'))));
+    await tester.pumpAndSettle();
+    nav.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('paramètres'))));
+    await tester.pumpAndSettle();
+    showDialog<void>(
+        context: nav.currentContext!,
+        builder: (_) => const AlertDialog(content: Text('fiche')));
+    await tester.pumpAndSettle();
+
+    await press(tester, 'home');
+    expect(find.text('médiathèque'), findsOneWidget);
+    expect(find.text('paramètres'), findsNothing);
+    expect(find.text('fiche'), findsNothing);
+    expect(find.text('A'), findsNothing, reason: 'pas la page des comptes');
+  });
+
   group('création de compte (champ texte)', () {
     late FixtureBackend backend;
     late List<TextFieldInfo?> announced;
@@ -161,9 +187,10 @@ void main() {
           (n.context?.findAncestorWidgetOfExactType<TextField>() != null
               ? 'champ'
               : describeIdentity(n));
-      Iterable<FocusNode> nodes() => FocusManager.instance.primaryFocus!
-          .nearestScope!.traversalDescendants
-          .where((n) => n.canRequestFocus && !n.skipTraversal);
+      Iterable<FocusNode> nodes() =>
+          FocusManager.instance.primaryFocus!.nearestScope!.traversalDescendants
+              .where((n) => n.canRequestFocus && !n.skipTraversal);
+
       /// Place le focus sur [node] et oublie l'historique des flèches (sinon
       /// la flèche opposée à la précédente « revient en arrière »).
       Future<void> focusOn(WidgetTester tester, FocusNode node) async {
@@ -190,8 +217,8 @@ void main() {
       expect(reached.length, greaterThan(5));
 
       // Depuis « Créer le compte », on remonte jusqu'au champ Nom.
-      await focusOn(tester,
-          nodes().firstWhere((n) => name(n) == fr.createAccountButton));
+      await focusOn(
+          tester, nodes().firstWhere((n) => name(n) == fr.createAccountButton));
       for (var i = 0; i < 20 && focusedEditable() == null; i++) {
         await press(tester, 'up');
       }
@@ -250,6 +277,93 @@ void main() {
     });
   });
 
+  group('RemoteKeyListener (WebSocket du cœur)', () {
+    testWidgets('événement input : la touche déplace le focus', (tester) async {
+      final link = FakeLink();
+      nav = GlobalKey<NavigatorState>();
+      tapped = [];
+      Widget card(String name, {bool autofocus = false}) => FocusableCard(
+            autofocus: autofocus,
+            onTap: () => tapped.add(name),
+            semanticLabel: name,
+            child: SizedBox(width: 100, height: 60, child: Text(name)),
+          );
+      await tester.pumpWidget(MaterialApp(
+        navigatorKey: nav,
+        builder: (context, child) => RemoteKeyListener(
+          baseUrl: 'http://tv.test',
+          navigator: nav,
+          createLink: () => link,
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Row(children: [card('A', autofocus: true), card('B')]),
+        ),
+      ));
+      await tester.pump();
+      expect(focused(), 'A');
+
+      link.emit({
+        'type': 'input',
+        'data': {'key': 'right'}
+      });
+      await tester.pumpAndSettle();
+      expect(focused(), 'B');
+
+      link.emit({
+        'type': 'input',
+        'data': {'key': 'ok'}
+      });
+      await tester.pumpAndSettle();
+      expect(tapped, ['B']);
+
+      // Autres événements du cœur (lecteur, file…) : ignorés.
+      link.emit({
+        'type': 'player.state',
+        'data': {'key': 'left'}
+      });
+      await tester.pumpAndSettle();
+      expect(focused(), 'B');
+
+      await tester.pumpWidget(const SizedBox());
+      expect(link.closed, isTrue, reason: 'connexion fermée avec l\'app');
+    });
+
+    testWidgets('remote.text et remote.shortcut : texte tapé et langue',
+        (tester) async {
+      final before = appLocale.value;
+      addTearDown(() => appLocale.value = before);
+      final link = FakeLink();
+      final backend = FixtureBackend();
+      nav = GlobalKey<NavigatorState>();
+      await pumpTv(
+          tester,
+          RemoteKeyListener(
+            baseUrl: 'http://tv.test',
+            navigator: nav,
+            createLink: () => link,
+            child: CreateAccountScreen(api: Api(fixtureClient(backend).http)),
+          ));
+      await tester.pump();
+      expect(focusedEditable(), isNotNull, reason: 'champ Nom');
+
+      link.emit({
+        'type': 'remote.text',
+        'data': {'text': 'Léa', 'done': false}
+      });
+      await tester.pump();
+      expect(find.text('Léa'), findsOneWidget);
+
+      link.emit({
+        'type': 'remote.shortcut',
+        'data': {'shortcut': 'language', 'language': 'en'}
+      });
+      await tester.pump();
+      expect(appLocale.value, const Locale('en'));
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
   test('raccourci langue : la TV passe en anglais puis en français', () {
     final before = appLocale.value;
     addTearDown(() => appLocale.value = before);
@@ -265,4 +379,24 @@ void main() {
     handler.handle({'shortcut': 'language'});
     expect(appLocale.value, const Locale('fr'));
   });
+}
+
+/// Faux WebSocket du cœur : le test pousse lui-même les événements.
+class FakeLink implements PlayerLink {
+  final _events = StreamController<Map<String, dynamic>>.broadcast();
+  bool closed = false;
+
+  void emit(Map<String, dynamic> event) => _events.add(event);
+
+  @override
+  Stream<Map<String, dynamic>> get events => _events.stream;
+
+  @override
+  Future<void> report(Map<String, dynamic> state) async {}
+
+  @override
+  void close() {
+    closed = true;
+    _events.close();
+  }
 }

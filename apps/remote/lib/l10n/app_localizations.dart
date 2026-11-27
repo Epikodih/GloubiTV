@@ -341,7 +341,7 @@ abstract class AppLocalizations {
   /// No description provided for @serverOfflineBody.
   ///
   /// In fr, this message translates to:
-  /// **'Impossible de joindre le serveur à l\'adresse {address}. Vérifie l\'adresse et que le téléphone est sur le même Wi-Fi.'**
+  /// **'Impossible de joindre le serveur à l\'adresse {address}. Scanne le QR affiché sur la TV (il contient la bonne adresse) ou vérifie l\'adresse et le Wi-Fi.'**
   String serverOfflineBody(String address);
 
   /// No description provided for @changeAddress.
@@ -434,66 +434,6 @@ abstract class AppLocalizations {
   /// **'Accueil'**
   String get keyHome;
 
-  /// No description provided for @whoIsWatching.
-  ///
-  /// In fr, this message translates to:
-  /// **'Qui regarde ?'**
-  String get whoIsWatching;
-
-  /// No description provided for @currentProfile.
-  ///
-  /// In fr, this message translates to:
-  /// **'Profil actuel'**
-  String get currentProfile;
-
-  /// No description provided for @profileLocked.
-  ///
-  /// In fr, this message translates to:
-  /// **'Protégé par un code PIN'**
-  String get profileLocked;
-
-  /// No description provided for @pinTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Code PIN de {name}'**
-  String pinTitle(String name);
-
-  /// No description provided for @pinSemantics.
-  ///
-  /// In fr, this message translates to:
-  /// **'Code PIN à 4 chiffres'**
-  String get pinSemantics;
-
-  /// No description provided for @pinInvalid.
-  ///
-  /// In fr, this message translates to:
-  /// **'PIN incorrect. Encore {count, plural, =1{1 essai} other{{count} essais}}.'**
-  String pinInvalid(int count);
-
-  /// No description provided for @pinInvalidNoCount.
-  ///
-  /// In fr, this message translates to:
-  /// **'PIN incorrect.'**
-  String get pinInvalidNoCount;
-
-  /// No description provided for @pinLocked.
-  ///
-  /// In fr, this message translates to:
-  /// **'Trop d\'essais. Réessaie dans {seconds} s.'**
-  String pinLocked(int seconds);
-
-  /// No description provided for @pinLockedNoDelay.
-  ///
-  /// In fr, this message translates to:
-  /// **'Trop d\'essais. Réessaie plus tard.'**
-  String get pinLockedNoDelay;
-
-  /// No description provided for @profilesError.
-  ///
-  /// In fr, this message translates to:
-  /// **'Impossible de charger les comptes.'**
-  String get profilesError;
-
   /// No description provided for @pairingConfirmTitle.
   ///
   /// In fr, this message translates to:
@@ -583,6 +523,24 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Langue : passer la TV et le téléphone en {language}'**
   String languageToggle(String language);
+
+  /// No description provided for @pinPadTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN'**
+  String get pinPadTitle;
+
+  /// No description provided for @pinPadProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} chiffres saisis sur {total}'**
+  String pinPadProgress(int count, int total);
+
+  /// No description provided for @pinPadErase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer'**
+  String get pinPadErase;
 }
 
 class _AppLocalizationsDelegate

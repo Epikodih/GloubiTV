@@ -1,5 +1,6 @@
 // Télécommande une fois appairée : vérification du token, croix
 // directionnelle, menu du profil (comme sur la TV), changement de compte.
+import 'package:epikodi_remote/remote/pin_pad.dart';
 import 'package:epikodi_remote/remote/tv_commands.dart';
 import 'package:epikodi_remote/storage/remote_store.dart';
 import 'package:flutter/material.dart';
@@ -116,6 +117,33 @@ void main() {
       );
       await pumpRemote(tester, world);
       expect(find.byKey(const ValueKey('key-ok')), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets(
+        'TV désappairée (« Appairage » sur la TV) : la touche suivante '
+        'ramène à la connexion', (tester) async {
+      final world = TestWorld(saved: savedPairing());
+      await pumpRemote(tester, world);
+      expect(find.byKey(const ValueKey('key-ok')), findsOneWidget);
+
+      // Le serveur refuse le jeton à la prochaine touche.
+      world.commands.rejectToken();
+      await settle(tester);
+      expect(world.store.saved, isNull, reason: 'TV oubliée');
+      expect(find.text(fr.welcomeTitle), findsOneWidget);
+      expect(find.text(fr.sessionExpired), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('TV désappairée : le serveur prévient tout de suite (WebSocket)',
+        (tester) async {
+      final world = TestWorld(saved: savedPairing());
+      await pumpRemote(tester, world);
+      world.events.emit({'type': 'unauthorized'});
+      await settle(tester);
+      expect(world.store.saved, isNull);
+      expect(find.text(fr.sessionExpired), findsOneWidget);
       await unmount(tester);
     });
 
@@ -385,129 +413,44 @@ void main() {
   });
 
   group('changer de profil', () {
-    testWidgets('liste des comptes de la TV, profil actuel coché',
+    testWidgets('la TV affiche « Qui regarde ? » : pas de menu sur le téléphone',
         (tester) async {
       final world = TestWorld(saved: savedPairing());
       await pumpRemote(tester, world);
-      await openSwitchSheet(tester);
-
-      expect(world.backend.calls('GET', '/api/profiles'), hasLength(1));
-      expect(find.text(fr.whoIsWatching), findsOneWidget);
-      expect(find.byKey(const ValueKey('profile-1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('profile-2')), findsOneWidget);
-      expect(find.byKey(const ValueKey('profile-guest')), findsOneWidget);
-      expect(find.text(fr.currentProfile), findsOneWidget);
-      expect(find.byIcon(Icons.lock_rounded), findsOneWidget,
-          reason: 'Marc demande un PIN');
-      await unmount(tester);
-    });
-
-    testWidgets('compte sans PIN : choisi directement', (tester) async {
-      final world = TestWorld(saved: savedPairing());
-      world.backend.on('GET', '/api/session', (_) => (200, sessionWith(null)));
-      world.backend.on(
-          'POST',
-          '/api/session/profile',
-          (_) => (
-                200,
-                {
-                  'profile':
-                      (readFixture('session/current.json') as Map)['profile']
-                }
-              ));
-      await pumpRemote(tester, world);
-      await openSwitchSheet(tester);
-
-      await tester.tap(find.byKey(const ValueKey('profile-2')));
+      await openMenu(tester);
+      await tester.tap(find.byKey(const ValueKey('menu-switchProfile')));
       await settle(tester);
 
-      expect(world.backend.last('POST', '/api/session/profile')!.json,
-          {'type': 'account', 'profile_id': 2});
-      expect(find.text(fr.whoIsWatching), findsNothing, reason: 'fermé');
-      expect(button(fr.profileMenuSemantics('Léa')), findsOneWidget);
-      await unmount(tester);
-    });
-
-    testWidgets('compte avec PIN : code à 4 chiffres, puis choisi',
-        (tester) async {
-      final world = TestWorld(saved: savedPairing());
-      await pumpRemote(tester, world);
-      await openSwitchSheet(tester);
-
-      await tester.tap(find.byKey(const ValueKey('profile-1')));
-      await settle(tester);
-      expect(find.text(fr.pinTitle('Marc')), findsOneWidget);
+      expect(world.commands.sent, [TvShortcut.switchProfile]);
+      expect(find.byType(BottomSheet), findsNothing,
+          reason: 'le compte se choisit sur la TV');
       expect(world.backend.calls('POST', '/api/session/profile'), isEmpty);
-
-      await typeCode(tester, '1234');
-      expect(world.backend.last('POST', '/api/session/profile')!.json,
-          readFixture('session/select_request.json'));
-      expect(button(fr.profileMenuSemantics('Marc')), findsOneWidget,
-          reason: 'nouveau profil actif');
+      expect(find.byKey(const ValueKey('key-up')), findsOneWidget,
+          reason: 'les flèches pour choisir sur la TV');
       await unmount(tester);
     });
 
-    testWidgets('PIN faux : essais restants, PIN effacé', (tester) async {
-      final world = TestWorld(saved: savedPairing());
-      world.backend.fail('POST', '/api/session/profile',
-          status: 403, code: 'pin_invalid', details: {'attempts_left': 2});
-      await pumpRemote(tester, world);
-      await openSwitchSheet(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-1')));
-      await settle(tester);
-
-      await typeCode(tester, '0000');
-      expect(find.text(fr.pinInvalid(2)), findsOneWidget);
-      expect(find.text(fr.pinTitle('Marc')), findsOneWidget, reason: 'reste');
-      expect(find.text('0'), findsNothing, reason: 'PIN effacé');
-      await unmount(tester);
-    });
-
-    testWidgets('trop d\'essais de PIN : bloqué pendant retry_after_s',
+    testWidgets('profil choisi sur la TV : le téléphone suit (profile.changed)',
         (tester) async {
       final world = TestWorld(saved: savedPairing());
-      world.backend.fail('POST', '/api/session/profile',
-          status: 429, code: 'pin_locked', details: {'retry_after_s': 2});
       await pumpRemote(tester, world);
-      await openSwitchSheet(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-1')));
+
+      world.events.emit({'type': 'profile.changed', 'profile': null});
       await settle(tester);
-
-      await typeCode(tester, '1234');
-      expect(find.text(fr.pinLocked(2)), findsOneWidget);
-      await tester.pump(const Duration(seconds: 3));
-      expect(find.textContaining('Trop d\'essais'), findsNothing);
-      await unmount(tester);
-    });
-
-    testWidgets('invité', (tester) async {
-      final world = TestWorld(saved: savedPairing());
-      world.backend.on('POST', '/api/session/profile',
-          (_) => (200, {'profile': guest}));
-      await pumpRemote(tester, world);
-      await openSwitchSheet(tester);
-
-      await tester.tap(find.byKey(const ValueKey('profile-guest')));
+      world.events.emit({
+        'type': 'profile.changed',
+        'profile': {
+          'kind': 'account',
+          'id': 2,
+          'name': 'Léa',
+          'icon': 'avatar_07',
+          'language': 'fr',
+          'age': 10,
+          'is_restricted': true,
+        },
+      });
       await settle(tester);
-      expect(world.backend.last('POST', '/api/session/profile')!.json,
-          {'type': 'guest'});
-      expect(button(fr.profileMenuSemantics(fr.guestProfile)), findsOneWidget);
-      await unmount(tester);
-    });
-
-    testWidgets('comptes impossibles à charger : message et réessayer',
-        (tester) async {
-      final world = TestWorld(saved: savedPairing());
-      world.backend
-          .fail('GET', '/api/profiles', status: 500, code: 'internal_error');
-      await pumpRemote(tester, world);
-      await openSwitchSheet(tester);
-
-      expect(find.text(fr.profilesError), findsOneWidget);
-      world.backend.reset('GET', '/api/profiles');
-      await tester.tap(find.text(fr.retry));
-      await settle(tester);
-      expect(find.byKey(const ValueKey('profile-1')), findsOneWidget);
+      expect(button(fr.profileMenuSemantics('Léa')), findsOneWidget);
       await unmount(tester);
     });
   });
@@ -520,6 +463,155 @@ void main() {
     await openMenu(tester);
     expect(find.text('Switch profile'), findsOneWidget);
     await unmount(tester);
+  });
+
+  testWidgets('Retour / Accueil : tout le bouton est cliquable, pas que le texte',
+      (tester) async {
+    final world = TestWorld(saved: savedPairing());
+    await pumpRemote(tester, world);
+    final back = tester.getRect(find.byKey(const ValueKey('key-back')));
+    final home = tester.getRect(find.byKey(const ValueKey('key-home')));
+    expect(back.height, greaterThanOrEqualTo(60), reason: 'grande cible');
+    expect(back.width, greaterThan(100));
+
+    // Près des bords, loin de l'icône et du texte.
+    await tester.tapAt(back.topLeft + const Offset(12, 8));
+    await tester.tapAt(back.bottomRight - const Offset(6, 6));
+    await tester.tapAt(home.centerRight - const Offset(10, 0));
+    await tester.pump();
+    expect(world.commands.sent, [TvKey.back, TvKey.back, TvKey.home]);
+    await unmount(tester);
+  });
+
+  testWidgets(
+      'erreur (« La TV ne connaît plus ce téléphone ») : popup qui disparaît '
+      'toute seule', (tester) async {
+    final world = TestWorld(saved: savedPairing());
+    await pumpRemote(tester, world);
+    world.events.emit({'type': 'unauthorized'});
+    await settle(tester);
+    final toast = find.byKey(const ValueKey('error-toast'));
+    expect(toast, findsOneWidget);
+    expect(find.descendant(of: toast, matching: find.text(fr.sessionExpired)),
+        findsOneWidget);
+    // En haut de l'écran, par-dessus la page.
+    expect(tester.getTopLeft(toast).dy, lessThan(120));
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(toast, findsOneWidget, reason: 'encore là');
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(toast, findsNothing, reason: 'partie toute seule');
+    await unmount(tester);
+  });
+
+  group('code PIN demandé sur la TV', () {
+    Map<String, dynamic> pin({int id = 7, String label = 'Marc'}) => {
+          'type': 'text_input',
+          'active': true,
+          'id': id,
+          'label': label,
+          'value': '',
+          'obscure': true,
+          'keyboard': 'pin',
+          'max_length': 4,
+        };
+
+    testWidgets('le pavé numérique remplace les flèches, Retour/Accueil restent',
+        (tester) async {
+      final world = TestWorld(saved: savedPairing());
+      await pumpRemote(tester, world);
+      expect(find.byKey(const ValueKey('key-up')), findsOneWidget);
+
+      world.events.emit(pin());
+      await settle(tester);
+      expect(find.byType(PinPad), findsOneWidget);
+      expect(find.text('Marc'), findsWidgets);
+      expect(find.byKey(const ValueKey('key-up')), findsNothing,
+          reason: 'plus de flèches');
+      expect(find.byKey(const ValueKey('key-ok')), findsNothing);
+      expect(find.byKey(const ValueKey('key-back')), findsOneWidget);
+      expect(find.byKey(const ValueKey('key-home')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tv-text-field')), findsNothing,
+          reason: 'pas de clavier texte');
+
+      // Retour marche toujours (ferme la popup PIN sur la TV).
+      await tester.tap(find.byKey(const ValueKey('key-back')));
+      await settle(tester);
+      expect(world.commands.sent, [TvKey.back]);
+      await unmount(tester);
+    });
+
+    testWidgets('chaque chiffre envoie la saisie, le dernier valide',
+        (tester) async {
+      final world = TestWorld(saved: savedPairing());
+      await pumpRemote(tester, world);
+      world.events.emit(pin());
+      await settle(tester);
+
+      for (final d in ['1', '2']) {
+        await tester.tap(find.byKey(ValueKey('pin-$d')));
+        await tester.pump();
+      }
+      await tester.tap(find.byKey(const ValueKey('pin-erase')));
+      await tester.pump();
+      for (final d in ['3', '4', '5']) {
+        await tester.tap(find.byKey(ValueKey('pin-$d')));
+        await tester.pump();
+      }
+      expect(world.commands.texts, [
+        ('1', false),
+        ('12', false),
+        ('1', false),
+        ('13', false),
+        ('134', false),
+        ('1345', true),
+      ]);
+      // Le code n'est jamais affiché en clair.
+      expect(find.text('1345'), findsNothing);
+      await unmount(tester);
+    });
+
+    testWidgets('code faux (nouvelle demande) : saisie effacée, message',
+        (tester) async {
+      final world = TestWorld(saved: savedPairing());
+      await pumpRemote(tester, world);
+      world.events.emit(pin(id: 7));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('pin-9')));
+      await tester.pump();
+
+      world.events.emit(pin(id: 8, label: 'Code PIN incorrect.'));
+      await settle(tester);
+      expect(find.text('Code PIN incorrect.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('pin-1')));
+      await tester.pump();
+      expect(world.commands.texts.last, ('1', false),
+          reason: 'repart de zéro');
+      await unmount(tester);
+    });
+
+    testWidgets('popup PIN fermée sur la TV : les flèches reviennent',
+        (tester) async {
+      final world = TestWorld(saved: savedPairing());
+      await pumpRemote(tester, world);
+      world.events.emit(pin());
+      await settle(tester);
+      world.events.emit({'type': 'text_input', 'active': false});
+      await settle(tester);
+      expect(find.byType(PinPad), findsNothing);
+      expect(find.byKey(const ValueKey('key-up')), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('petit écran : pas de débordement', (tester) async {
+      final world = TestWorld(saved: savedPairing());
+      await pumpRemote(tester, world, size: const Size(320, 568));
+      world.events.emit(pin());
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await unmount(tester);
+    });
   });
 
   group('clavier pour la TV', () {

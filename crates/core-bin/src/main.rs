@@ -1,5 +1,6 @@
 mod config;
 mod mdns;
+mod reset;
 mod wiring;
 
 use std::{fs, net::SocketAddr, process};
@@ -11,6 +12,12 @@ use config::Config;
 
 #[tokio::main]
 async fn main() {
+    // Commande de secours : `epikodi-core reset-pin <nom> | --all`.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("reset-pin") {
+        process::exit(reset_pin(&args[1..]));
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
@@ -94,6 +101,54 @@ async fn main() {
         Err(e) => {
             tracing::error!("serveur interrompu : {e}");
             process::exit(1);
+        }
+    }
+}
+
+/// `reset-pin` : efface le PIN d'un compte (ou de tous) dans la base du
+/// dossier de données configuré. Possible même serveur lancé (SQLite).
+/// Renvoie le code de sortie.
+fn reset_pin(args: &[String]) -> i32 {
+    let target = match reset::parse(args) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("{e}");
+            return 2;
+        }
+    };
+    let config = match Config::load() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("configuration invalide : {e}");
+            return 1;
+        }
+    };
+    let data_dir = &config.storage.data_dir;
+    if !data_dir.join("epikodi.db").exists() {
+        eprintln!(
+            "pas de base dans {} : lancez la commande depuis le dossier du serveur (ou EPIKODI_CONFIG).",
+            data_dir.display()
+        );
+        return 1;
+    }
+    let store = match wiring::store_factory(data_dir)() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("impossible d'ouvrir la base : {e}");
+            return 1;
+        }
+    };
+    match reset::reset_pins(&store, &target) {
+        Ok(outcome) => {
+            println!("{}", reset::message(&outcome));
+            match outcome {
+                reset::Outcome::Reset(_) => 0,
+                _ => 1,
+            }
+        }
+        Err(e) => {
+            eprintln!("échec : {e}");
+            1
         }
     }
 }

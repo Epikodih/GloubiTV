@@ -2,7 +2,6 @@
 //! suppression. Le statut (invité, restreint, non restreint) est toujours
 //! vérifié ici, jamais déduit de ce qu'affiche l'app.
 
-use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
@@ -19,7 +18,7 @@ use epikodi_domain::protocol::{
 };
 use epikodi_storage::secrets::hash_pin;
 
-use crate::auth::{check_pin, Ctx};
+use crate::auth::{check_any_pin, check_pin, Ctx};
 use crate::error::{ApiError, ApiResult};
 use crate::extract::{JsonBody, PathId};
 use crate::state::{AppState, Selection};
@@ -33,6 +32,29 @@ pub async fn list(ctx: Ctx, State(state): State<AppState>) -> ApiResult<Json<Pro
         can_create: !ctx.profile.as_ref().is_some_and(ActiveProfile::is_guest),
         profiles: profiles.iter().map(views::profile_list_item).collect(),
     }))
+}
+
+/// Vérifie le PIN d'un adulte (n'importe quel compte non restreint avec
+/// PIN). Aucun adulte : rien à protéger, accepté. PIN absent :
+/// `pin_required` ; faux : `pin_invalid` (essais limités, comme partout).
+async fn check_adult_pin(state: &AppState, pin: Option<&str>) -> ApiResult<()> {
+    let adults: Vec<_> = state
+        .db(|s| Ok(s.list_profiles()?))
+        .await?
+        .into_iter()
+        .filter(|p| !p.is_restricted && p.pin_hash.is_some())
+        .collect();
+    if adults.is_empty() {
+        return Ok(());
+    }
+    if pin.is_none() {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "pin_required",
+            "Le code PIN d'un adulte est demandé.",
+        ));
+    }
+    check_any_pin(state, &adults, pin).await
 }
 
 async fn any_admin_account(state: &AppState) -> ApiResult<bool> {
@@ -71,11 +93,13 @@ pub async fn create(
     check_language(&language)?;
     let age = check_age(req.age)?;
     check_pin_for_restriction(req.is_restricted, req.pin.as_deref())?;
-    // Un profil restreint ne peut pas se créer un compte non restreint
-    // (sinon le contrôle parental ne sert à rien).
+    // Compte non restreint : le PIN d'un adulte existant est demandé
+    // (sinon un enfant se crée un compte adulte avec son propre PIN). Le
+    // tout premier adulte se crée librement. Un adulte connecté n'a pas à
+    // le redonner.
     let active_is_admin = ctx.profile.as_ref().is_some_and(ActiveProfile::is_admin);
-    if !req.is_restricted && !active_is_admin && any_admin_account(&state).await? {
-        return Err(ApiError::admin_required());
+    if !req.is_restricted && !active_is_admin {
+        check_adult_pin(&state, req.adult_pin.as_deref()).await?;
     }
 
     let pin = req.pin.clone();
@@ -251,22 +275,21 @@ pub async fn delete(
     ctx: Ctx,
     State(state): State<AppState>,
     PathId(id): PathId,
-    body: Bytes,
+    body: axum::body::Bytes,
 ) -> ApiResult<StatusCode> {
-    let active = ctx.profile()?;
-    if active.is_guest() {
-        return Err(ApiError::guest_forbidden());
-    }
+    // Toute suppression demande le PIN d'un adulte (n'importe lequel), sauf
+    // si un adulte est connecté ou qu'il n'en existe aucun : sinon un enfant
+    // supprime les adultes puis se crée le sien, ou supprime le compte d'un
+    // autre enfant. Possible depuis « Qui regarde ? », sans profil choisi.
     let req: DeleteProfileRequest = if body.is_empty() {
         DeleteProfileRequest::default()
     } else {
         serde_json::from_slice(&body).map_err(|_| ApiError::validation("body", "JSON invalide"))?
     };
-    let target = load(&state, id).await?;
-    if target.pin_hash.is_some() {
-        check_pin(&state, &target, req.pin.as_deref()).await?;
-    } else if !active.is_admin() && active.user_id() != Some(id) {
-        return Err(ApiError::admin_required());
+    load(&state, id).await?; // profile_not_found
+    let active_is_admin = ctx.profile.as_ref().is_some_and(ActiveProfile::is_admin);
+    if !active_is_admin {
+        check_adult_pin(&state, req.pin.as_deref()).await?;
     }
     state.db(move |s| Ok(s.delete_profile(id)?)).await?;
     if state.selection() == Selection::Account(id) {

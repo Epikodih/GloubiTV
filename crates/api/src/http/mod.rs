@@ -27,9 +27,13 @@ pub fn routes() -> Router<AppState> {
         .route("/api/tv/connect", post(tv::connect))
         .route("/api/tv/pairing/refresh", post(tv::refresh))
         .route("/api/tv/status", get(tv::status))
+        .route("/api/tv/unpair", post(tv::unpair))
         .route("/api/tv/events", get(ws::tv_events))
         .route("/api/remote/pair", post(tv::pair))
         .route("/api/remote/input", post(player::input))
+        .route("/api/remote/text", post(player::text))
+        .route("/api/remote/shortcut", post(player::shortcut))
+        .route("/api/tv/text-input", post(player::text_input))
         // comptes et session
         .route("/api/profiles", get(profiles::list).post(profiles::create))
         .route(

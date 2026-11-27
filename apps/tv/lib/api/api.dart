@@ -59,6 +59,8 @@ class Api {
     required String language,
     required int age,
     required bool isRestricted,
+    String? pin,
+    String? adultPin,
   }) async {
     final json = await _client.post('/api/profiles', body: {
       'name': name,
@@ -66,6 +68,11 @@ class Api {
       'language': language,
       'age': age,
       'is_restricted': isRestricted,
+      // Obligatoire pour un compte non restreint (create_request.json).
+      if (pin != null) 'pin': pin,
+      // PIN d'un adulte existant : demandé pour un compte non restreint dès
+      // qu'un adulte existe (un enfant ne se crée pas de compte adulte).
+      if (adultPin != null) 'adult_pin': adultPin,
     });
     return _activeProfile(json);
   }
@@ -93,6 +100,35 @@ class Api {
       if (pin != null) 'pin': pin,
     });
     return _activeProfile(json);
+  }
+
+  /// Nouveau code PIN du compte actif (`PATCH /api/profiles/{id}` avec
+  /// `new_pin`), après un PIN effacé par `epikodi-core reset-pin` : le
+  /// compte, déjà ouvert, n'a pas d'ancien PIN à donner.
+  Future<Map<String, dynamic>> setNewPin(Object id, String newPin) async {
+    final json =
+        await _client.patch('/api/profiles/$id', body: {'new_pin': newPin});
+    return _activeProfile(json);
+  }
+
+  /// Supprime un compte (`DELETE /api/profiles/{id}`). Lève [ApiException]
+  /// (`profile_not_found`, `pin_invalid`…).
+  /// [pin] : PIN d'un adulte, demandé dès qu'un adulte existe
+  /// (profiles/delete_request.json).
+  Future<void> deleteProfile(Object id, {String? pin}) async {
+    await _client.delete('/api/profiles/$id',
+        body: pin == null ? null : {'pin': pin});
+  }
+
+  /// Retour à « Qui regarde ? » : plus de profil actif
+  /// (`DELETE /api/session/profile`). Une erreur est ignorée : au pire,
+  /// l'ancien profil reste actif jusqu'au prochain choix.
+  Future<void> clearProfile() async {
+    try {
+      await _client.delete('/api/session/profile');
+    } on ApiException {
+      // serveur injoignable : sans conséquence ici
+    }
   }
 
   // ------------------------------------------------------------ médiathèque

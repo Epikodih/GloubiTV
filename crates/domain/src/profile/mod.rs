@@ -21,9 +21,11 @@ pub struct Profile {
 }
 
 impl Profile {
-    /// Un compte non restreint s'ouvre avec son PIN.
+    /// Un compte non restreint s'ouvre avec son PIN. Sans PIN (effacé par
+    /// `epikodi-core reset-pin`), il s'ouvre sans, et la TV en fait choisir
+    /// un nouveau.
     pub fn requires_pin(&self) -> bool {
-        !self.is_restricted
+        !self.is_restricted && self.pin_hash.is_some()
     }
 
     pub fn visibility(&self) -> Visibility {

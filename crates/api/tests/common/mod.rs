@@ -151,6 +151,10 @@ impl TestApp {
         self.call(Method::DELETE, path, None, who).await
     }
 
+    pub async fn delete_with(&self, path: &str, body: Value, who: &Who) -> (StatusCode, Value) {
+        self.call(Method::DELETE, path, Some(body), who).await
+    }
+
     /// La TV se connecte : (session, code affiché).
     pub async fn tv_connect(&self) -> (String, String) {
         let (s, b) = self
@@ -186,6 +190,7 @@ impl TestApp {
         let mut body = json!({"name": name, "icon": "avatar_01", "language": "fr", "age": age, "is_restricted": restricted});
         if !restricted {
             body["pin"] = json!("1234");
+            body["adult_pin"] = json!("1234"); // PIN des adultes de test
         }
         let (s, b) = self.post("/api/profiles", body, who).await;
         assert_eq!(s, StatusCode::CREATED, "{b}");

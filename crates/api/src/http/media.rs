@@ -78,15 +78,20 @@ pub async fn list(
         ));
     }
     let offset: u32 = parse("offset", &q.offset)?.unwrap_or(0);
-    let kind = q
+    // `kind` accepte plusieurs types séparés par des virgules.
+    let mut kinds = q
         .kind
         .as_deref()
+        .unwrap_or("")
+        .split(',')
+        .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(|k| {
             k.parse::<MediaKind>()
                 .map_err(|_| ApiError::invalid_query("kind", "type inconnu"))
         })
-        .transpose()?;
+        .collect::<ApiResult<Vec<_>>>()?;
+    let kind = (!kinds.is_empty()).then(|| kinds.remove(0));
     let sort = match q.sort.as_deref() {
         None | Some("") => MediaSort::Default,
         Some("title") => MediaSort::Title,
@@ -112,6 +117,7 @@ pub async fn list(
     }
     let query = MediaQuery {
         kind,
+        extra_kinds: kinds,
         list: list.zip(user),
         max_age: parse("max_age", &q.max_age)?,
         parent_id: parse("parent_id", &q.parent_id)?,

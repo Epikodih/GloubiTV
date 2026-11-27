@@ -11,6 +11,7 @@ class TextInputRequest {
     required this.value,
     this.obscure = false,
     this.number = false,
+    this.pin = false,
     this.maxLength,
   });
 
@@ -23,6 +24,7 @@ class TextInputRequest {
       value: json['value'] as String? ?? '',
       obscure: json['obscure'] == true,
       number: json['keyboard'] == 'number',
+      pin: json['keyboard'] == 'pin',
       maxLength: (json['max_length'] as num?)?.toInt(),
     );
   }
@@ -33,6 +35,10 @@ class TextInputRequest {
   final String value;
   final bool obscure;
   final bool number;
+
+  /// Code PIN demandé par la TV (`keyboard: "pin"`) : pavé numérique à la
+  /// place des flèches, pas de clavier.
+  final bool pin;
   final int? maxLength;
 }
 
@@ -42,10 +48,14 @@ abstract class RemoteEventsSource {
   void close();
 }
 
-/// `GET /api/remote/events` (Server-Sent Events, route provisoire du faux
-/// serveur `test_api.py`). Se reconnecte tout seul si la connexion tombe.
-class SseRemoteEvents implements RemoteEventsSource {
-  SseRemoteEvents({
+/// WebSocket du cœur (`GET /api/ws`, avec le jeton du téléphone). Se
+/// reconnecte tout seul si la connexion tombe.
+///
+/// Les messages `{"type": ..., "data": {...}}` sont aplatis pour l'écran :
+/// `{"type": "text_input", "active": true, ...}`. Un jeton révoqué (la TV a
+/// désappairé ce téléphone) donne `{"type": "unauthorized"}`, et on arrête.
+class WsRemoteEvents implements RemoteEventsSource {
+  WsRemoteEvents({
     required this.baseUrl,
     required this.token,
     required this.onEvent,
@@ -57,7 +67,7 @@ class SseRemoteEvents implements RemoteEventsSource {
   final void Function(Map<String, dynamic> event) onEvent;
   final Duration retryDelay;
 
-  final _http = HttpClient();
+  WebSocket? _socket;
   bool _closed = false;
 
   @override
@@ -66,38 +76,70 @@ class SseRemoteEvents implements RemoteEventsSource {
   @override
   void close() {
     _closed = true;
-    _http.close(force: true);
+    _socket?.close();
+  }
+
+  /// Adresse du WebSocket : `ws://hôte:port/api/ws`.
+  static Uri wsUri(String baseUrl) {
+    final base = Uri.parse(baseUrl.replaceFirst(RegExp(r'/+$'), ''));
+    return base.replace(
+        scheme: base.scheme == 'https' ? 'wss' : 'ws', path: '/api/ws');
+  }
+
+  /// Message du serveur -> événement pour l'écran (`null` : ignoré).
+  static Map<String, dynamic>? decode(Object? message) {
+    if (message is! String) return null;
+    final Object? json;
+    try {
+      json = jsonDecode(message);
+    } on FormatException {
+      return null;
+    }
+    if (json is! Map<String, dynamic>) return null;
+    final type = json['type'];
+    final data = json['data'];
+    if (type == 'error' && data is Map && data['code'] == 'unauthorized') {
+      return const {'type': 'unauthorized'};
+    }
+    if (type is! String) return null;
+    return {'type': type, if (data is Map<String, dynamic>) ...data};
   }
 
   Future<void> _run() async {
-    final base = baseUrl.replaceFirst(RegExp(r'/+$'), '');
     while (!_closed) {
       try {
-        final req = await _http.getUrl(Uri.parse('$base/api/remote/events'));
-        req.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
-        if (token != null) {
-          req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+        final socket = await WebSocket.connect(
+          wsUri(baseUrl).toString(),
+          headers: {
+            if (token != null) HttpHeaders.authorizationHeader: 'Bearer $token',
+          },
+        );
+        if (_closed) {
+          await socket.close();
+          return;
         }
-        final res = await req.close();
-        if (res.statusCode == 200) {
-          await for (final line in res
-              .transform(utf8.decoder)
-              .transform(const LineSplitter())) {
-            if (_closed) return;
-            if (!line.startsWith('data:')) continue;
-            try {
-              final json = jsonDecode(line.substring(5).trim());
-              if (json is Map<String, dynamic>) onEvent(json);
-            } on FormatException {
-              // ligne illisible : ignorée
-            }
+        _socket = socket;
+        await for (final message in socket) {
+          if (_closed) return;
+          final event = decode(message);
+          if (event == null) continue;
+          onEvent(event);
+          if (event['type'] == 'unauthorized') {
+            _closed = true;
+            await socket.close();
+            return;
           }
-        } else {
-          await res.drain<void>();
+        }
+      } on WebSocketException catch (e) {
+        // Jeton refusé dès l'ouverture (401) : désappairé.
+        if (e.message.contains('401')) {
+          onEvent(const {'type': 'unauthorized'});
+          return;
         }
       } catch (_) {
-        // serveur arrêté, réseau coupé, route absente : on réessaie
+        // serveur arrêté, réseau coupé : on réessaie
       }
+      _socket = null;
       if (!_closed) await Future<void>.delayed(retryDelay);
     }
   }

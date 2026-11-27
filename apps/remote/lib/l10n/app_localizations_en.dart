@@ -162,7 +162,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String serverOfflineBody(String address) {
-    return 'Cannot reach the server at $address. Check the address and that the phone is on the same Wi-Fi.';
+    return 'Cannot reach the server at $address. Scan the QR code shown on the TV (it has the right address) or check the address and the Wi-Fi.';
   }
 
   @override
@@ -213,48 +213,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get keyHome => 'Home';
 
   @override
-  String get whoIsWatching => 'Who\'s watching?';
-
-  @override
-  String get currentProfile => 'Current profile';
-
-  @override
-  String get profileLocked => 'Protected by a PIN';
-
-  @override
-  String pinTitle(String name) {
-    return 'PIN for $name';
-  }
-
-  @override
-  String get pinSemantics => '4-digit PIN';
-
-  @override
-  String pinInvalid(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count tries',
-      one: '1 try',
-    );
-    return 'Wrong PIN. $_temp0 left.';
-  }
-
-  @override
-  String get pinInvalidNoCount => 'Wrong PIN.';
-
-  @override
-  String pinLocked(int seconds) {
-    return 'Too many tries. Try again in $seconds s.';
-  }
-
-  @override
-  String get pinLockedNoDelay => 'Too many tries. Try again later.';
-
-  @override
-  String get profilesError => 'Could not load the accounts.';
-
-  @override
   String get pairingConfirmTitle => 'Back to pairing?';
 
   @override
@@ -302,4 +260,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String languageToggle(String language) {
     return 'Language: switch the TV and the phone to $language';
   }
+
+  @override
+  String get pinPadTitle => 'PIN';
+
+  @override
+  String pinPadProgress(int count, int total) {
+    return '$count of $total digits entered';
+  }
+
+  @override
+  String get pinPadErase => 'Delete';
 }

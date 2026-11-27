@@ -96,6 +96,29 @@
 
     "pinTitle": "PIN required",
   "pinSubtitle": "Enter the PIN to change the age restriction.",
+  "newPinTitle": "Choose a PIN",
+  "newPinSubtitle": "It protects this account's parental controls.",
+  "confirmPinTitle": "Confirm the PIN",
+  "confirmPinSubtitle": "Type the same PIN again.",
+  "pinMismatch": "The two PINs do not match.",
+  "pinResetSubtitle": "Your PIN was reset. Choose a new one to continue.",
+  "adultPinTitle": "An adult's PIN",
+  "adultPinCreateSubtitle": "An adult must approve creating an unrestricted account.",
+  "adultPinDeleteSubtitle": "An adult must approve deleting an account.",
+  "editAccounts": "Edit",
+  "editDone": "Done",
+  "manageAccounts": "Manage accounts",
+  "chooseAccountToDelete": "Choose the account to delete.",
+  "deleteAccount": "Delete",
+  "deleteAccountSemantics": "Delete {name}'s account",
+  "@deleteAccountSemantics": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "deleteAccountTitle": "Delete {name}'s account?",
+  "@deleteAccountTitle": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "deleteAccountBody": "Their favorites, watchlist and resume points will be lost. Files are not touched.",
   "pinWrong": "Incorrect PIN.",
   "pinDigitSemantics": "Digit {digit}",
   "@pinDigitSemantics": {

@@ -54,6 +54,18 @@ async fn client(socket: WebSocket, state: AppState, auth: Auth) {
     if send(&mut tx, &hello).await.is_err() {
         return;
     }
+    // Téléphone qui arrive pendant qu'un champ de la TV a le focus : il
+    // ouvre tout de suite son clavier.
+    let field = state
+        .text_input
+        .lock()
+        .map(|f| f.clone())
+        .unwrap_or_else(|e| e.into_inner().clone());
+    if let (Some(field), Some(_)) = (field, auth.device()) {
+        if send(&mut tx, &Event::TextInput(field)).await.is_err() {
+            return;
+        }
+    }
 
     // Un jeton révoqué ou expiré pendant la connexion la ferme : vérifié
     // avant chaque commande reçue, et régulièrement sinon.
@@ -70,6 +82,12 @@ async fn client(socket: WebSocket, state: AppState, auth: Auth) {
                 }
             },
             ev = events.recv() => match ev {
+                // Ce téléphone vient d'être désappairé : on le prévient tout
+                // de suite (sans attendre la revérification) et on ferme.
+                Ok(Event::DeviceRevoked { device_id: id }) if Some(id) == device_id => {
+                    let _ = tx.send(Message::Text(unauthorized_message().to_string())).await;
+                    break;
+                }
                 Ok(e) => {
                     if send(&mut tx, &e).await.is_err() {
                         break;

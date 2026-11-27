@@ -111,6 +111,9 @@ pub struct Inner {
     pub tv_changed: watch::Sender<u64>,
     pub player: Mutex<PlayerRuntime>,
     pub scan: Mutex<ScanStatus>,
+    /// Dernier champ texte annoncé par la TV : envoyé au téléphone qui ouvre
+    /// son WebSocket pendant qu'un champ a le focus.
+    pub text_input: Mutex<Option<epikodi_domain::protocol::TextInputState>>,
     /// Un scan a été demandé pendant qu'un autre tournait : il sera relancé
     /// (toutes les sources) à la fin du scan en cours.
     pub scan_pending: std::sync::atomic::AtomicBool,
@@ -156,6 +159,7 @@ impl AppState {
             tv_changed,
             player: Mutex::new(PlayerRuntime::default()),
             scan: Mutex::new(ScanStatus::default()),
+            text_input: Mutex::new(None),
             scan_pending: std::sync::atomic::AtomicBool::new(false),
             providers,
             images,

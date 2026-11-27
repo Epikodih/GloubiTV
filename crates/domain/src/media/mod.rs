@@ -335,6 +335,9 @@ pub enum UserList {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MediaQuery {
     pub kind: Option<MediaKind>,
+    /// Autres types acceptés en plus de [`Self::kind`] (`kind=series,season,episode` :
+    /// la recherche « Séries » trouve aussi les saisons et les épisodes).
+    pub extra_kinds: Vec<MediaKind>,
     /// Favoris ou « À regarder » de ce compte.
     pub list: Option<(UserList, Id)>,
     /// Classification connue et inférieure ou égale (filtre choisi à l'écran).

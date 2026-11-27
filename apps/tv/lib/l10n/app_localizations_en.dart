@@ -196,6 +196,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pinSubtitle => 'Enter the PIN to change the age restriction.';
 
   @override
+  String get newPinTitle => 'Choose a PIN';
+
+  @override
+  String get newPinSubtitle => 'It protects this account\'s parental controls.';
+
+  @override
+  String get confirmPinTitle => 'Confirm the PIN';
+
+  @override
+  String get confirmPinSubtitle => 'Type the same PIN again.';
+
+  @override
+  String get pinMismatch => 'The two PINs do not match.';
+
+  @override
+  String get pinResetSubtitle =>
+      'Your PIN was reset. Choose a new one to continue.';
+
+  @override
+  String get adultPinTitle => 'An adult\'s PIN';
+
+  @override
+  String get adultPinCreateSubtitle =>
+      'An adult must approve creating an unrestricted account.';
+
+  @override
+  String get adultPinDeleteSubtitle =>
+      'An adult must approve deleting an account.';
+
+  @override
+  String get editAccounts => 'Edit';
+
+  @override
+  String get editDone => 'Done';
+
+  @override
+  String get manageAccounts => 'Manage accounts';
+
+  @override
+  String get chooseAccountToDelete => 'Choose the account to delete.';
+
+  @override
+  String get deleteAccount => 'Delete';
+
+  @override
+  String deleteAccountSemantics(String name) {
+    return 'Delete $name\'s account';
+  }
+
+  @override
+  String deleteAccountTitle(String name) {
+    return 'Delete $name\'s account?';
+  }
+
+  @override
+  String get deleteAccountBody =>
+      'Their favorites, watchlist and resume points will be lost. Files are not touched.';
+
+  @override
   String get pinWrong => 'Incorrect PIN.';
 
   @override

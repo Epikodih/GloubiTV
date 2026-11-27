@@ -47,6 +47,7 @@ pub async fn revoke(
         })
         .await?;
     lock(&state.pairing).detach_device(id);
+    state.emit(epikodi_domain::protocol::Event::DeviceRevoked { device_id: id });
     state.notify_tv();
     Ok(StatusCode::NO_CONTENT)
 }

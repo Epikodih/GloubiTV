@@ -14,8 +14,8 @@ import '../remote/dpad.dart';
 import '../remote/info_screen.dart';
 import '../remote/language_button.dart';
 import '../remote/profile_menu.dart';
+import '../remote/pin_pad.dart';
 import '../remote/remote_events.dart';
-import '../remote/switch_profile_sheet.dart';
 import '../remote/text_input_sheet.dart';
 import '../remote/tv_commands.dart';
 import '../storage/remote_store.dart';
@@ -93,7 +93,12 @@ class _ConnectedScreenState extends State<ConnectedScreen>
         (deps.createClient(PairTarget(host: p.host, port: p.port).baseUrl)
           ..token = p.token);
     _client = client;
-    _commands = deps.commands(client);
+    _commands = deps.commands(client)
+      // La TV a désappairé ce téléphone (« Appairage » sur la TV) : la
+      // prochaine touche est refusée, on revient à la connexion.
+      ..onUnauthorized = () {
+        if (mounted) _forget(sessionExpired: true);
+      };
     _events = deps.events(client, _onServerEvent)..start();
     _load();
   }
@@ -101,10 +106,28 @@ class _ConnectedScreenState extends State<ConnectedScreen>
   /// Un champ texte prend le focus sur la TV : le clavier du téléphone
   /// s'ouvre. Il se ferme quand la TV quitte le champ.
   void _onServerEvent(Map<String, dynamic> event) {
-    if (event['type'] != 'text_input' || !mounted) return;
+    if (!mounted) return;
+    // Jeton révoqué : la TV a désappairé ce téléphone.
+    if (event['type'] == 'unauthorized') {
+      _forget(sessionExpired: true);
+      return;
+    }
+    // Profil choisi (ou oublié) sur la TV : le téléphone suit.
+    if (event['type'] == 'profile.changed') {
+      final p = event['profile'];
+      setState(() => _profile = p is Map<String, dynamic>
+          ? SessionProfile.fromJson(p)
+          : null);
+      return;
+    }
+    if (event['type'] != 'text_input') return;
     final request = TextInputRequest.fromEvent(event);
     _textRequest.value = request;
-    if (request != null && !_keyboardOpen && _status == _Status.ok) {
+    // Code PIN : le pavé remplace les flèches (voir build), pas de clavier.
+    if (request != null &&
+        !request.pin &&
+        !_keyboardOpen &&
+        _status == _Status.ok) {
       _openKeyboard();
     }
   }
@@ -207,26 +230,20 @@ class _ConnectedScreenState extends State<ConnectedScreen>
     if (ok != true) return;
     // La TV revient aussi à son écran d'appairage. Si elle ne répond pas,
     // on se désappaire quand même côté téléphone.
-    await _commands.unpair().timeout(const Duration(seconds: 3),
-        onTimeout: () {});
+    await _commands
+        .unpair()
+        .timeout(const Duration(seconds: 3), onTimeout: () {});
     await _forget();
-  }
-
-  Future<void> _switchProfile() async {
-    final profile = await showSwitchProfileSheet(
-      context,
-      client: _client!,
-      current: _profile,
-    );
-    if (profile != null && mounted) setState(() => _profile = profile);
   }
 
   void _onMenu(ProfileMenuAction action) {
     switch (action) {
       case ProfileMenuAction.profile:
         _commands.shortcut(TvShortcut.profile);
+      // Le compte se choisit sur la TV (« Qui regarde ? ») : téléphone et TV
+      // ne peuvent pas se désynchroniser.
       case ProfileMenuAction.switchProfile:
-        _switchProfile();
+        _commands.shortcut(TvShortcut.switchProfile);
       case ProfileMenuAction.pairing:
         _confirmPairing();
       case ProfileMenuAction.info:
@@ -331,17 +348,29 @@ class _ConnectedScreenState extends State<ConnectedScreen>
                     Expanded(
                       child: LayoutBuilder(builder: (context, c) {
                         // Pavé aussi grand que possible, barre du bas comprise.
-                        final pad = math.min(
-                            math.min(c.maxWidth, 340.0),
-                            math.max(200.0, c.maxHeight - 58 - 64));
+                        final pad = math.min(math.min(c.maxWidth, 340.0),
+                            math.max(200.0, c.maxHeight - NavKeys.height - 64));
                         return SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints:
-                                BoxConstraints(minHeight: c.maxHeight),
+                            constraints: BoxConstraints(minHeight: c.maxHeight),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                DPad(size: pad, onKey: _commands.key),
+                                // Code PIN demandé sur la TV : pavé
+                                // numérique à la place des flèches.
+                                ValueListenableBuilder<TextInputRequest?>(
+                                  valueListenable: _textRequest,
+                                  builder: (context, request, _) => request !=
+                                              null &&
+                                          request.pin
+                                      ? PinPad(
+                                          request: request,
+                                          size: pad,
+                                          onDigits: (digits, done) => _commands
+                                              .text(digits, done: done),
+                                        )
+                                      : DPad(size: pad, onKey: _commands.key),
+                                ),
                                 const SizedBox(height: AppSpacing.lg),
                                 SizedBox(
                                   width: pad,

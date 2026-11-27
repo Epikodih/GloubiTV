@@ -55,7 +55,8 @@ void main() {
       expect(find.text(fr.serverOfflineTitle), findsOneWidget);
       expect(find.text(fr.serverOfflineBody('192.168.1.42')), findsOneWidget);
       expect(gloubiShowing('worried.webp'), findsOneWidget);
-      expect(button(fr.scanQr), findsNothing, reason: 'pas de TV sans serveur');
+      expect(button(fr.scanQr), findsOneWidget,
+          reason: 'le QR de la TV donne la bonne adresse');
 
       world.offline = false;
       await tester.tap(button(fr.retry));
@@ -86,8 +87,8 @@ void main() {
       await pumpRemote(tester, world);
       await openServer(tester);
 
-      final field = tester
-          .widget<TextField>(find.byKey(const ValueKey('address-field')));
+      final field =
+          tester.widget<TextField>(find.byKey(const ValueKey('address-field')));
       expect(field.controller!.text, '192.168.1.42');
 
       await typeServer(tester, '10.0.2.2:9000');
@@ -251,7 +252,8 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('trop d\'essais : bloqué pendant retry_after_s', (tester) async {
+    testWidgets('trop d\'essais : bloqué pendant retry_after_s',
+        (tester) async {
       final world = TestWorld();
       world.backend.fail('POST', '/api/remote/pair',
           status: 429,
@@ -268,10 +270,14 @@ void main() {
           reason: 'pas de nouvel essai pendant le blocage');
       expect(isEnabled(tester, fr.connect), isFalse);
 
+      // La popup suit le décompte (texte mis à jour à l'image suivante).
       await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
       expect(find.text(fr.errorTooManyAttempts(2)), findsOneWidget);
 
+      // Fin du blocage : la popup se ferme.
       await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
       expect(find.textContaining('Trop d\'essais'), findsNothing);
       await typeCode(tester, '482916');
       expect(world.backend.calls('POST', '/api/remote/pair'), hasLength(2));
@@ -293,6 +299,63 @@ void main() {
   });
 
   group('TV : QR', () {
+    testWidgets(
+        'IP du serveur changée : le QR donne la nouvelle adresse, appairé '
+        'sans rien taper', (tester) async {
+      final world = TestWorld(
+          scanResult:
+              'mediacenter://pair?host=10.89.53.4&port=7878&sid=a3f9c2e1&code=482916')
+        ..offline = true;
+      await pumpRemote(tester, world);
+      expect(find.text(fr.serverOfflineTitle), findsOneWidget);
+
+      // Le serveur a juste changé d'adresse.
+      world.offline = false;
+      await tester.tap(find.byKey(const ValueKey('offline-scan')));
+      await settle(tester);
+
+      expect(world.scans, 1);
+      expect(world.baseUrls.last, 'http://10.89.53.4:7878',
+          reason: "appairage sur l'adresse du QR");
+      expect(world.backend.last('POST', '/api/remote/pair')!.json['code'],
+          '482916');
+      expect(find.byKey(const ValueKey('key-ok')), findsOneWidget);
+      expect(await world.store.serverAddress(), '10.89.53.4:7878',
+          reason: 'gardée pour le prochain lancement');
+      expect(world.store.saved!.host, '10.89.53.4');
+      await unmount(tester);
+    });
+
+    testWidgets("QR d'un autre media center : son adresse remplace la nôtre",
+        (tester) async {
+      final world = TestWorld(
+          scanResult:
+              'mediacenter://pair?host=192.168.1.99&port=9000&sid=x&code=482916');
+      await pumpRemote(tester, world);
+      await tester.tap(button(fr.scanQr));
+      await settle(tester);
+      expect(world.baseUrls.last, 'http://192.168.1.99:9000');
+      expect(await world.store.serverAddress(), '192.168.1.99:9000');
+      await unmount(tester);
+    });
+
+    testWidgets(
+        "QR sans code depuis l'écran hors ligne : adresse gardée, "
+        'on tape le code', (tester) async {
+      final world = TestWorld(
+          scanResult: 'mediacenter://pair?host=10.0.0.5&port=7878&sid=x')
+        ..offline = true;
+      await pumpRemote(tester, world);
+      world.offline = false;
+      await tester.tap(find.byKey(const ValueKey('offline-scan')));
+      await settle(tester);
+      expect(find.text(fr.qrNoCode), findsOneWidget);
+      await typeCode(tester, '482916');
+      expect(world.baseUrls.last, 'http://10.0.0.5:7878');
+      expect(find.byKey(const ValueKey('key-ok')), findsOneWidget);
+      await unmount(tester);
+    });
+
     testWidgets('QR de la TV (fixtures) : appairé sans rien taper',
         (tester) async {
       final world = TestWorld(scanResult: fixtureQr);
@@ -313,7 +376,8 @@ void main() {
     testWidgets('QR sans code (ancien serveur) : on tape ensuite le code',
         (tester) async {
       final world = TestWorld(
-          scanResult: 'mediacenter://pair?host=192.168.1.42&port=7878&sid=a3f9c2e1');
+          scanResult:
+              'mediacenter://pair?host=192.168.1.42&port=7878&sid=a3f9c2e1');
       await pumpRemote(tester, world);
 
       await tester.tap(button(fr.scanQr));

@@ -27,6 +27,9 @@ class AccountsScreen extends StatelessWidget {
     required this.onProfile,
     required this.onCreate,
     required this.onGuest,
+    this.editing = false,
+    this.onToggleEdit,
+    this.onDelete,
   });
 
   /// Réponse du serveur : { phase, profiles: [...], guest: {...}, can_create }.
@@ -43,6 +46,15 @@ class AccountsScreen extends StatelessWidget {
 
   /// La carte « Invité » a été choisie.
   final VoidCallback onGuest;
+
+  /// Mode « modifier » : chaque compte porte une corbeille, OK le supprime.
+  final bool editing;
+
+  /// Bouton « Modifier » / « Terminé » (en haut à gauche). Absent si null.
+  final VoidCallback? onToggleEdit;
+
+  /// Supprimer ce compte (en mode « modifier »).
+  final void Function(Map<String, dynamic> profile)? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -69,15 +81,27 @@ class AccountsScreen extends StatelessWidget {
       }
 
       return [
+        // Petite icône « Modifier » juste à gauche des comptes.
+        if (onToggleEdit != null && !noAccount)
+          _EditButton(
+            editing: editing,
+            size: avatar * 0.5,
+            onTap: onToggleEdit!,
+          ),
         for (final p in profiles)
           _AccountCard(
+            key: ValueKey('account-${p['id']}'),
             name: '${p['name']}',
             avatarSize: avatar,
             locked: p['requires_pin'] == true,
             autofocus: takeFocus(),
-            onTap: () => onProfile(p),
+            deleting: editing,
+            semanticLabel:
+                editing ? l10n.deleteAccountSemantics('${p['name']}') : null,
+            onTap: () => editing ? onDelete?.call(p) : onProfile(p),
           ),
-        if (canCreate)
+        // En mode « modifier », seulement les comptes.
+        if (canCreate && !editing)
           _AccountCard(
             name: l10n.createCard,
             avatarSize: avatar,
@@ -86,7 +110,7 @@ class AccountsScreen extends StatelessWidget {
             autofocus: takeFocus(),
             onTap: onCreate,
           ),
-        if (guestAvailable)
+        if (guestAvailable && !editing)
           _AccountCard(
             name: l10n.guestCard,
             avatarSize: avatar,
@@ -138,10 +162,23 @@ class AccountsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        noAccount ? l10n.noAccountYet : l10n.whoIsWatching,
+                        noAccount
+                            ? l10n.noAccountYet
+                            : editing
+                                ? l10n.manageAccounts
+                                : l10n.whoIsWatching,
                         style: AppText.headline,
                         textAlign: TextAlign.center,
                       ),
+                      if (editing && !noAccount) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          l10n.chooseAccountToDelete,
+                          style:
+                              AppText.body.copyWith(color: AppColors.textMuted),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                       if (noAccount) ...[
                         const SizedBox(height: AppSpacing.sm),
                         Text(
@@ -225,12 +262,53 @@ class _AccountsRow extends StatelessWidget {
   }
 }
 
+/// Petite icône ronde à gauche des comptes : crayon (« Modifier ») ou
+/// coche (« Terminé »). Le libellé est lu par le lecteur d'écran.
+class _EditButton extends StatelessWidget {
+  const _EditButton({
+    required this.editing,
+    required this.size,
+    required this.onTap,
+  });
+
+  final bool editing;
+  final double size;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: FocusableCard(
+        key: const ValueKey('accounts-edit'),
+        borderRadius: 999,
+        onTap: onTap,
+        semanticLabel: editing ? l10n.editDone : l10n.editAccounts,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: editing
+                ? AppColors.primary.withValues(alpha: 0.3)
+                : AppColors.surfaceHigh,
+          ),
+          child: Icon(editing ? Icons.check_rounded : Icons.edit_rounded,
+              size: size * 0.45, color: AppColors.text),
+        ),
+      ),
+    );
+  }
+}
+
 /// Carte d'un compte. Avec `icon`, c'est une carte d'action (Créer, Invité) :
 /// pastille grise avec l'icône au lieu de l'initiale.
 /// Le contenu est dans un FittedBox : si la place manque, il se réduit
 /// au lieu de provoquer un « bottom overflow ».
 class _AccountCard extends StatelessWidget {
   const _AccountCard({
+    super.key,
     required this.name,
     required this.onTap,
     required this.avatarSize,
@@ -238,7 +316,11 @@ class _AccountCard extends StatelessWidget {
     this.icon,
     this.semanticLabel,
     this.autofocus = false,
+    this.deleting = false,
   });
+
+  /// Mode « modifier » : corbeille rouge sur l'avatar.
+  final bool deleting;
 
   final String name;
   final VoidCallback onTap;
@@ -274,29 +356,53 @@ class _AccountCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: avatarSize,
-                height: avatarSize,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: isAction ? null : AppBrand.gradient,
-                  color: isAction ? AppColors.surfaceHigh : null,
-                  shape: BoxShape.circle,
-                ),
-                child: isAction
-                    ? Icon(icon, size: avatarSize * 0.55, color: AppColors.text)
-                    : FittedBox(
-                        child: Padding(
-                          padding: EdgeInsets.all(avatarSize * 0.2),
-                          child: Text(
-                            name.isEmpty
-                                ? '?'
-                                : name.characters.first.toUpperCase(),
-                            style:
-                                AppText.headline.copyWith(color: Colors.white),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: avatarSize,
+                    height: avatarSize,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: isAction ? null : AppBrand.gradient,
+                      color: isAction ? AppColors.surfaceHigh : null,
+                      shape: BoxShape.circle,
+                    ),
+                    child: isAction
+                        ? Icon(icon,
+                            size: avatarSize * 0.55, color: AppColors.text)
+                        : FittedBox(
+                            child: Padding(
+                              padding: EdgeInsets.all(avatarSize * 0.2),
+                              child: Text(
+                                name.isEmpty
+                                    ? '?'
+                                    : name.characters.first.toUpperCase(),
+                                style: AppText.headline
+                                    .copyWith(color: Colors.white),
+                              ),
+                            ),
                           ),
+                  ),
+                  if (deleting)
+                    Positioned(
+                      right: -avatarSize * 0.04,
+                      top: -avatarSize * 0.04,
+                      child: Container(
+                        key: const ValueKey('delete-badge'),
+                        width: avatarSize * 0.38,
+                        height: avatarSize * 0.38,
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                          border:
+                              Border.all(color: AppColors.background, width: 3),
                         ),
+                        child: Icon(Icons.delete_rounded,
+                            size: avatarSize * 0.22, color: Colors.white),
                       ),
+                    ),
+                ],
               ),
               const SizedBox(height: AppSpacing.sm),
               Row(

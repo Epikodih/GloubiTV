@@ -336,6 +336,76 @@ void main() {
       expect(find.byType(PairingPanel), findsOneWidget);
       expect(backend.calls('POST', '/api/tv/connect'), hasLength(2),
           reason: 'nouveau connect');
+      // Le téléphone est d'abord désappairé (sinon le nouveau connect le
+      // reprendrait et la TV sauterait de nouveau aux comptes).
+      expect(backend.last('POST', '/api/tv/unpair')!.json,
+          readFixture('tv/unpair_request.json'));
+      expect(
+          backend.requests.indexWhere((r) => r.path == '/api/tv/unpair'),
+          lessThan(backend.requests
+              .lastIndexWhere((r) => r.path == '/api/tv/connect')),
+          reason: 'désappairage avant le nouveau connect');
+      await unmount(tester);
+    });
+
+    testWidgets(
+        '« Appairage » : serveur en erreur, retour à l\'appairage quand même',
+        (tester) async {
+      backend.fail('POST', '/api/tv/unpair',
+          status: 404, code: 'tv_session_not_found');
+      await pumpPairing(tester);
+      events.last.emit(accountsData());
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+
+      await tester.tap(find.text(fr.pairingButton));
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(PairingPanel), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets(
+        'téléphone désappairé : la session repasse en « pairing », la TV '
+        'revient à son code', (tester) async {
+      await pumpPairing(tester);
+      events.last.emit(accountsData());
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(AccountsScreen), findsOneWidget);
+
+      // La TV continue d'écouter sa session après la passation.
+      final watcher = events.last;
+      expect(watcher.sessionId, 'a3f9c2e1');
+      expect(watcher.started, isTrue);
+
+      // Changement sans désappairage (profil choisi) : on reste.
+      watcher.emit({...accountsData(), 'phase': 'ready'});
+      await settle(tester);
+      expect(find.byType(AccountsScreen), findsOneWidget);
+
+      watcher.emit({'phase': 'pairing'});
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(PairingPanel), findsOneWidget);
+      expect(watcher.closed, isTrue);
+      expect(backend.calls('POST', '/api/tv/unpair'), isEmpty,
+          reason: 'déjà désappairé par le téléphone');
+      expect(backend.calls('POST', '/api/tv/connect'), hasLength(2));
+      await unmount(tester);
+    });
+
+    testWidgets('session oubliée après la passation : retour à l\'appairage',
+        (tester) async {
+      await pumpPairing(tester);
+      events.last.emit(accountsData());
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+
+      events.last.loseSession();
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(PairingPanel), findsOneWidget);
       await unmount(tester);
     });
   });
@@ -352,8 +422,8 @@ void main() {
     expect(remoteBackToPairing, isNotNull);
 
     // Un écran de plus par-dessus (comme la médiathèque).
-    Navigator.of(tester.element(find.byType(Scaffold).first))
-        .push(MaterialPageRoute<void>(
+    Navigator.of(tester.element(find.byType(Scaffold).first)).push(
+        MaterialPageRoute<void>(
             builder: (_) => const Scaffold(body: Text('médiathèque'))));
     await settle(tester);
 

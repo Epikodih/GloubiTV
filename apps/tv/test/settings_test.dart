@@ -2,7 +2,7 @@
 import 'package:design_system/design_system.dart';
 import 'package:epikodi_tv/api/api.dart';
 import 'package:epikodi_tv/library/library_screen.dart';
-import 'package:epikodi_tv/remote/remote_keys.dart';
+import 'package:epikodi_tv/library/library_sidebar.dart';
 import 'package:epikodi_tv/settings/sources_screen.dart';
 import 'package:epikodi_tv/widgets/profile_menu.dart';
 import 'package:flutter/material.dart';
@@ -73,67 +73,24 @@ void main() {
     });
   });
 
-  group('menu de gauche', () {
-    Future<void> pumpLibrary(
-        WidgetTester tester, Map<String, dynamic> profile) async {
-      await pumpTv(
-        tester,
-        LibraryScreen(
-          api: Api(fixtureClient(backend).http),
-          profile: profile,
-          onChangeProfile: () {},
-          onBackToPairing: () {},
-        ),
-      );
-      await settle(tester);
-    }
-
-    testWidgets('« Paramètres » en bas : OK ouvre les dossiers',
-        (tester) async {
-      await pumpLibrary(tester, marc);
-      final settings = key('nav-settings');
-      expect(settings, findsOneWidget);
-      expect(
-          find.descendant(
-              of: settings, matching: find.byIcon(Icons.settings_rounded)),
-          findsOneWidget);
-      await tester.tap(settings);
-      await settle(tester);
-      await tester.pumpAndSettle();
-      expect(find.byType(SourcesScreen), findsOneWidget);
-    });
-
-    testWidgets('passer dessus ne l\'ouvre pas et ne change pas la liste',
-        (tester) async {
-      await pumpLibrary(tester, marc);
-      final r = RemoteKeyHandler(GlobalKey<NavigatorState>());
-      r.press('left'); // menu, sur Accueil
-      await settle(tester);
-      for (var i = 0; i < 12; i++) {
-        r.press('down');
-        await settle(tester);
-      }
-      expect(
-          FocusManager.instance.primaryFocus?.context
-              ?.findAncestorWidgetOfExactType<FocusableCard>()
-              ?.semanticLabel,
-          fr.settings);
-      expect(find.byType(SourcesScreen), findsNothing);
-      expect(backend.last('GET', '/api/media')!.query, {'kind': 'podcast'},
-          reason: 'la dernière liste reste affichée');
-      r.press('ok');
-      await settle(tester);
-      await tester.pumpAndSettle();
-      expect(find.byType(SourcesScreen), findsOneWidget);
-    });
-
-    testWidgets('invité et compte restreint : pas de « Paramètres »',
-        (tester) async {
-      await pumpLibrary(tester, {'kind': 'guest', 'id': null, 'name': null});
-      expect(key('nav-settings'), findsNothing);
-      await pumpLibrary(tester, {...marc, 'is_restricted': true});
-      expect(key('nav-settings'), findsNothing);
-    });
+  testWidgets('menu de gauche : pas de « Paramètres » (menu du profil seulement)',
+      (tester) async {
+    await pumpTv(
+      tester,
+      LibraryScreen(
+        api: Api(fixtureClient(backend).http),
+        profile: marc,
+        onChangeProfile: () {},
+        onBackToPairing: () {},
+      ),
+    );
+    await settle(tester);
+    expect(key('nav-settings'), findsNothing);
+    expect(
+        find.descendant(
+            of: find.byType(LibrarySidebar),
+            matching: find.byIcon(Icons.settings_rounded)),
+        findsNothing);
   });
 
   group('menu du profil', () {
@@ -156,23 +113,27 @@ void main() {
     testWidgets('compte sans restriction : « Paramètres » sous « Profil »',
         (tester) async {
       await openMenu(tester, marc);
-      expect(find.text(fr.settings).last, findsOneWidget);
-      expect(tester.getTopLeft(find.text(fr.settings).last).dy,
+      expect(find.text(fr.settings), findsOneWidget);
+      expect(tester.getTopLeft(find.text(fr.settings)).dy,
           greaterThan(tester.getTopLeft(find.text(fr.profile)).dy));
-      expect(tester.getTopLeft(find.text(fr.settings).last).dy,
+      expect(tester.getTopLeft(find.text(fr.settings)).dy,
           lessThan(tester.getTopLeft(find.text(fr.pairingButton)).dy));
 
-      await tester.tap(find.text(fr.settings).last);
+      await tester.tap(find.text(fr.settings));
       await settle(tester);
       await tester.pumpAndSettle();
       expect(find.byType(SourcesScreen), findsOneWidget);
     });
 
-    testWidgets('invité et compte restreint : pas de « Paramètres »',
+    testWidgets('invité : « Paramètres » disponible (choisir ses dossiers)',
         (tester) async {
       await openMenu(tester, {'kind': 'guest', 'id': null, 'name': null});
-      expect(find.text(fr.settings), findsNothing);
-      expect(find.text(fr.pairingButton), findsOneWidget);
+      expect(find.text(fr.settings), findsOneWidget,
+          reason: 'sans compte, il faut pouvoir ajouter des dossiers');
+      await tester.tap(find.text(fr.settings));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(SourcesScreen), findsOneWidget);
     });
 
     testWidgets('compte restreint : pas de « Paramètres »', (tester) async {
@@ -183,7 +144,7 @@ void main() {
     testWidgets('retour avec un dossier ajouté : la médiathèque se recharge',
         (tester) async {
       await openMenu(tester, marc);
-      await tester.tap(find.text(fr.settings).last);
+      await tester.tap(find.text(fr.settings));
       await settle(tester);
       await tester.pumpAndSettle();
       final before = backend.calls('GET', '/api/media').length;
@@ -200,7 +161,7 @@ void main() {
 
     testWidgets('retour sans changement : pas de rechargement', (tester) async {
       await openMenu(tester, marc);
-      await tester.tap(find.text(fr.settings).last);
+      await tester.tap(find.text(fr.settings));
       await settle(tester);
       await tester.pumpAndSettle();
       final before = backend.calls('GET', '/api/media').length;

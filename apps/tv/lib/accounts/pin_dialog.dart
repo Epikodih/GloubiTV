@@ -2,6 +2,8 @@ import 'package:design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../remote/remote_keys.dart';
+
 /// Nombre de chiffres du code PIN.
 const pinLength = 4;
 
@@ -45,6 +47,47 @@ class _PinDialogState extends State<PinDialog> {
   String? _error;
   bool _busy = false;
 
+  /// Pavé numérique sur le téléphone tant que la popup est ouverte.
+  RemotePinEntry? _remote;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _announce());
+  }
+
+  @override
+  void dispose() {
+    hideRemotePin(_remote);
+    super.dispose();
+  }
+
+  /// Annonce (ou réannonce après un code faux) la saisie au téléphone : un
+  /// nouvel identifiant lui fait effacer ses points.
+  void _announce() {
+    if (!mounted) return;
+    final previous = _remote;
+    _remote = RemotePinEntry(
+      label: _error ?? widget.profileName,
+      length: pinLength,
+      onDigits: _setFromRemote,
+    );
+    showRemotePin(_remote!);
+    hideRemotePin(previous);
+  }
+
+  /// Saisie complète envoyée par le téléphone.
+  void _setFromRemote(String digits) {
+    if (_busy || !mounted) return;
+    final pin =
+        digits.length > pinLength ? digits.substring(0, pinLength) : digits;
+    setState(() {
+      _pin = pin;
+      _error = null;
+    });
+    if (_pin.length == pinLength) _submit();
+  }
+
   void _digit(String d) {
     if (_busy || _pin.length >= pinLength) return;
     setState(() {
@@ -75,6 +118,7 @@ class _PinDialogState extends State<PinDialog> {
       _pin = '';
       _error = error;
     });
+    _announce(); // le téléphone efface sa saisie et affiche l'erreur
   }
 
   /// Clavier physique : chiffres et Retour arrière.
